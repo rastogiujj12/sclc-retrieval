@@ -1,0 +1,32 @@
+SCLC all-experiments runner v5.2
+
+What changed
+------------
+1. TorchDynamo's FlexAttention recompilation limits are raised before model use.
+2. Torch compiler caches are reset between dense encoding stages.
+3. Dense passage encoding writes a fingerprinted partial manifest and resumes completed documents after interruption.
+4. A remaining CUDA OOM in the optional Granite cross-section challenge is recorded as deferred so Jina and packaging can continue.
+
+Drive files
+-----------
+Place these files in MyDrive/dissertation/:
+
+- sclc-retrieval-v0.7.10-resume-oom-update.zip
+- review_decisions.csv
+
+Keep the persistent repository at:
+
+- MyDrive/dissertation/sclc_complete
+
+Normal settings
+---------------
+FORCE_OVERWRITE_ALL = False
+FORCE_OVERWRITE_STAGES = set()
+
+Do not force overwrite merely because Colab restarted or because you switched to a larger GPU. The valid completed artefacts are reused.
+
+Current T4 OOM recovery
+-----------------------
+Run v5.2 from the top. It will reuse completed section-isolated and section-constrained challenge outputs. The old interrupted global stage did not have a partial manifest, so that one failed stage may be repaired once with overwrite and restarted. Future interruptions resume at document level.
+
+If Granite global still runs out of memory, use an A100 or L4-class Colab runtime and rerun v5.2 with the normal settings above. Do not change the attention backend or truncate/window the document for only one condition.

@@ -1,0 +1,31 @@
+Query-type coding summary
+=========================
+
+Total queries: 554
+factual: 432
+section_specific: 66
+multi_hop: 21
+synthesis: 35
+uncertain: 0
+
+By analysis set:
+
+cross_model_core
+  factual: 342
+  section_specific: 51
+  multi_hop: 15
+  synthesis: 17
+  uncertain: 0
+
+granite_extended
+  factual: 90
+  section_specific: 15
+  multi_hop: 6
+  synthesis: 18
+  uncertain: 0
+
+Validation:
+  blank query IDs: 0
+  duplicate query IDs: 0
+  blank query types: 0
+  invalid labels: 0
