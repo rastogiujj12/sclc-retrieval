@@ -11,8 +11,8 @@ from sclc.config import AppConfig
 def load_qasper_splits(config: AppConfig) -> Iterator[tuple[str, Dataset]]:
     """Load QASPER directly from its published Parquet exports.
 
-    Current Hugging Face Datasets releases no longer execute legacy dataset
-    scripts such as qasper.py. The configured Parquet URLs bypass that script
+    Current Hugging Face Datasets releases do not execute dataset scripts
+    such as qasper.py. The configured Parquet URLs bypass that script
     while preserving QASPER's records and original train/validation/test splits.
     """
     for split in config.dataset.splits:

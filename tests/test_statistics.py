@@ -57,7 +57,6 @@ def test_compare_conditions_writes_pairwise_and_error_analysis_outputs(tmp_path)
         {
             "project": {"seed": 7},
             "paths": {
-                "raw_dir": tmp_path / "raw",
                 "processed_dir": tmp_path / "processed",
                 "profile_dir": tmp_path / "profiles",
                 "subset_dir": tmp_path / "subsets",

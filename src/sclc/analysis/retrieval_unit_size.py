@@ -156,13 +156,13 @@ def analyse_retrieval_unit_size(
 ) -> dict[str, Any]:
     sizes = tuple(dict.fromkeys(int(size) for size in chunk_sizes))
     if len(sizes) < 2:
-        raise ValueError("Retrieval-unit-size requires at least two chunk sizes")
+        raise ValueError("Retrieval-unit-size analysis requires at least two retrieval-unit sizes")
     if any(size <= 0 for size in sizes):
-        raise ValueError("Chunk sizes must be positive integers")
+        raise ValueError("Retrieval-unit sizes must be positive integers")
     unsupported = set(sizes).difference(config.chunking.supported_chunk_sizes)
     if unsupported:
         raise ValueError(
-            f"Unsupported chunk sizes {sorted(unsupported)}; expected a subset of "
+            f"Unsupported retrieval-unit sizes {sorted(unsupported)}; expected a subset of "
             f"{config.chunking.supported_chunk_sizes}"
         )
 
@@ -197,7 +197,7 @@ def analyse_retrieval_unit_size(
                 expected_query_ids = query_ids
             elif query_ids != expected_query_ids:
                 raise RuntimeError(
-                    f"Dense condition query sets differ at chunk size {size}"
+                    f"Dense condition query sets differ at retrieval-unit size {size}"
                 )
             loaded[(size, condition)] = frame
             source_manifests[f"{size}/{condition.value}"] = manifest[
@@ -209,8 +209,8 @@ def analyse_retrieval_unit_size(
         size_ids = set(loaded[(size, DENSE_CONDITIONS[0])]["query_id"].astype(str))
         if size_ids != reference_ids:
             raise RuntimeError(
-                "Evaluated query sets differ across chunk sizes; sensitivity analysis "
-                "requires identical questions at every size"
+                "Evaluated query sets differ across retrieval-unit sizes; "
+                "retrieval-unit-size analysis requires identical questions at every size"
             )
 
     configuration = {
@@ -248,7 +248,7 @@ def analyse_retrieval_unit_size(
         )
         if existing.get("configuration_fingerprint") != fingerprint:
             raise RuntimeError(
-                f"Cached sensitivity analysis at {output_dir} does not match current "
+                f"Cached retrieval-unit-size analysis at {output_dir} does not match current "
                 "inputs. Re-run with --overwrite."
             )
         return existing
@@ -356,7 +356,7 @@ def analyse_retrieval_unit_size(
                         )
 
         # Build per-query scope effects at each size, then test whether those effects
-        # change across chunk sizes (the chunk-size-by-scope interaction).
+        # change across retrieval-unit sizes (the size-by-scope interaction).
         effects_by_key: dict[tuple[str, str], pd.DataFrame] = {}
         for effect_name, first, second in SCOPE_EFFECTS:
             for size in sizes:
@@ -592,10 +592,10 @@ def analyse_retrieval_unit_size(
             "the frozen selected-paper corpus.",
             "The split_test scope preserves the original held-out test subset.",
             "Within-size differences are first condition minus second condition.",
-            "Chunk-size interactions test whether a scope difference changes between "
-            "two chunk sizes; positive values mean the named effect is larger at the "
-            "second chunk size.",
-            "Fixed-rank metrics change the amount of retrieved text as chunk size "
+            "Retrieval-unit-size interactions test whether a scope difference changes between "
+            "two retrieval-unit sizes; positive values mean the named effect is larger at the "
+            "second retrieval-unit size.",
+            "Fixed-rank metrics change the amount of retrieved text as retrieval-unit size "
             "changes; token-budget metrics provide the fairer cross-size comparison.",
         ],
     }

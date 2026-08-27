@@ -372,7 +372,7 @@ def retrieval_unit_size_command(
     )
     console.print("[green]Retrieval-unit-size analysis complete.[/green]")
     console.print(f"Model: {model.value}")
-    console.print(f"Chunk sizes: {result['chunk_sizes']}")
+    console.print(f"Retrieval-unit sizes: {result['chunk_sizes']}")
     console.print(f"Queries: {result['query_count']}")
     console.print(
         f"Outputs: {config.paths.analysis_dir / 'retrieval_unit_size' / model.value}"

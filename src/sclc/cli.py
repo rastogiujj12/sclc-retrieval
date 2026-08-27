@@ -234,7 +234,7 @@ def compare(
         None,
         "--retrieval-unit-size",
         min=1,
-        help="Selected chunk size namespace.",
+        help="Selected retrieval-unit size namespace.",
     ),
     overwrite: bool = typer.Option(
         False,
@@ -351,7 +351,7 @@ def retrieval_unit_size(
     retrieval_unit_sizes: str = typer.Option(
         "128,256,512",
         "--retrieval-unit-sizes",
-        help="Comma-separated chunk sizes with completed dense evaluations.",
+        help="Comma-separated retrieval-unit sizes with completed dense evaluations.",
     ),
     overwrite: bool = typer.Option(
         False,

@@ -14,7 +14,6 @@ def make_config(tmp_path: Path) -> AppConfig:
         {
             "project": {"seed": 42},
             "paths": {
-                "raw_dir": tmp_path / "raw",
                 "processed_dir": tmp_path / "processed",
                 "profile_dir": tmp_path / "profiles",
                 "subset_dir": tmp_path / "subsets",

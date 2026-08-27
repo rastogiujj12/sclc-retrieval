@@ -76,7 +76,9 @@ Run each embedding model:
 ```
 
 The final query-type labels are committed at
-`data/retrieval_units/query_types.csv`.
+`data/retrieval_units/query_types.csv`, with the detailed manual coding record at
+`data/retrieval_units/query_type_coding_record.csv`. The coding criteria are documented in
+`docs/query_type_coding_guide.md`.
 
 ## Retrieval-unit-size analysis
 
@@ -89,7 +91,8 @@ sclc retrieval-unit-size \
 ```
 
 Signed differences use **first condition minus second condition**. Positive
-values favour the first named condition; negative values favour the second.
+values favour the first named condition; negative values favour the second. See
+`docs/retrieval_unit_size_analysis.md` for the analysis outputs and interpretation.
 
 ## Evaluation metrics
 
@@ -136,8 +139,10 @@ python scripts/check_release.py
 ```
 
 Use `scripts/capture_environment.py` on the experiment machine to record the
-Python/package/CUDA/GPU environment and recover cached Hugging Face revisions
-when available.
+Python/package/CUDA/GPU environment and inspect cached Hugging Face references.
+When a cached reference resolves to a commit, that exact commit is recorded; otherwise
+the available local snapshots are listed without inferring a historical revision. See
+`reproducibility/README.md` for the archival workflow.
 
 ## Repository structure
 

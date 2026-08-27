@@ -1,63 +1,58 @@
-from sclc.config import AppConfig
+import importlib
+import sys
+from pathlib import Path
+from types import ModuleType
+from typing import Any
+
+from sclc.config import load_config
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_qasper_parquet_urls_are_configured() -> None:
-    config = AppConfig.model_validate(
-        {
-            "project": {"seed": 42},
-            "paths": {
-                "raw_dir": "data/raw",
-                "processed_dir": "data/processed",
-                "profile_dir": "data/profiles",
-                "subset_dir": "data/subsets",
-                "hf_cache_dir": "cache/huggingface",
-            },
-            "dataset": {
-                "repo_id": "allenai/qasper",
-                "subset": "qasper",
-                "splits": ["train", "validation", "test"],
-                "parquet_files": {
-                    "train": (
-                        "https://huggingface.co/datasets/allenai/qasper/resolve/"
-                        "refs%2Fconvert%2Fparquet/qasper/train/0000.parquet"
-                    ),
-                    "validation": (
-                        "https://huggingface.co/datasets/allenai/qasper/resolve/"
-                        "refs%2Fconvert%2Fparquet/qasper/validation/0000.parquet"
-                    ),
-                    "test": (
-                        "https://huggingface.co/datasets/allenai/qasper/resolve/"
-                        "refs%2Fconvert%2Fparquet/qasper/test/0000.parquet"
-                    ),
-                },
-            },
-            "document": {},
-            "chunking": {
-                "canonical_tokenizer": "granite",
-                "chunk_size_tokens": 512,
-                "overlap_tokens": 0,
-            },
-            "models": {
-                "granite": {
-                    "model_id": "granite",
-                    "max_document_tokens": 32768,
-                },
-                "jina": {
-                    "model_id": "jina",
-                    "max_document_tokens": 8192,
-                },
-            },
-            "sampling": {
-                "core_documents": 150,
-                "granite_extended_documents": 50,
-                "minimum_usable_questions": 1,
-                "length_bins": 3,
-            },
-        }
+    config = load_config(REPO_ROOT / "configs/base.yaml")
+
+    assert set(config.dataset.parquet_files) == {"train", "validation", "test"}
+    assert all(
+        url.startswith("https://huggingface.co/datasets/allenai/qasper/resolve/")
+        for url in config.dataset.parquet_files.values()
     )
 
-    assert set(config.dataset.parquet_files) == {
-        "train",
-        "validation",
-        "test",
-    }
+
+def test_qasper_loader_uses_configured_parquet_splits(monkeypatch: Any) -> None:
+    config = load_config(REPO_ROOT / "configs/base.yaml")
+    calls: list[dict[str, Any]] = []
+
+    def fake_load_dataset(
+        dataset_format: str,
+        *,
+        data_files: dict[str, str],
+        split: str,
+        cache_dir: str,
+    ) -> list[dict[str, str]]:
+        calls.append(
+            {
+                "dataset_format": dataset_format,
+                "data_files": data_files,
+                "split": split,
+                "cache_dir": cache_dir,
+            }
+        )
+        return [{"id": split}]
+
+    fake_datasets = ModuleType("datasets")
+    fake_datasets.Dataset = object
+    fake_datasets.load_dataset = fake_load_dataset
+    monkeypatch.setitem(sys.modules, "datasets", fake_datasets)
+    sys.modules.pop("sclc.data.qasper", None)
+    qasper = importlib.import_module("sclc.data.qasper")
+
+    loaded = list(qasper.load_qasper_splits(config))
+
+    assert [split for split, _ in loaded] == ["train", "validation", "test"]
+    assert [call["split"] for call in calls] == ["train", "validation", "test"]
+    assert all(call["dataset_format"] == "parquet" for call in calls)
+    assert all(call["cache_dir"] == str(config.paths.hf_cache_dir) for call in calls)
+    for call in calls:
+        split = str(call["split"])
+        assert call["data_files"] == {split: config.dataset.parquet_files[split]}

@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: Rastogi
     given-names: Ujjwal
-version: 1.0.0
+version: 1.0.1
 repository-code: "https://github.com/rastogiujj12/sclc-retrieval"
 license: MIT
 keywords:

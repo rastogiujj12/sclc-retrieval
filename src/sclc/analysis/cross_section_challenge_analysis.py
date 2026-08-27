@@ -142,11 +142,11 @@ def analyse_cross_section_challenge(
 ) -> dict[str, Any]:
     sizes = tuple(dict.fromkeys(int(size) for size in chunk_sizes))
     if not sizes or any(size <= 0 for size in sizes):
-        raise ValueError("Chunk sizes must be positive integers")
+        raise ValueError("Retrieval-unit sizes must be positive integers")
     unsupported = set(sizes).difference(config.chunking.supported_chunk_sizes)
     if unsupported:
         raise ValueError(
-            f"Unsupported chunk sizes {sorted(unsupported)}; expected a subset of "
+            f"Unsupported retrieval-unit sizes {sorted(unsupported)}; expected a subset of "
             f"{config.chunking.supported_chunk_sizes}"
         )
     if not accepted_queries_path.exists():
@@ -404,7 +404,7 @@ def analyse_cross_section_challenge(
             "accepted_cross_model group is used for direct Granite/Jina comparison.",
             "Within-size differences are first condition minus second condition.",
             "Holm correction is applied across the two predefined scope comparisons "
-            "within each model, analysis group, chunk size, and metric.",
+            "within each model, analysis group, retrieval-unit size, and metric.",
         ],
     }
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")

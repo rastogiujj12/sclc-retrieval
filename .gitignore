@@ -38,46 +38,24 @@ Code.zip
 *.tar
 *.tar.gz
 
-# ------------------------------------------------------------
 # Reconstructible dataset products
-# ------------------------------------------------------------
-
-# Prepared QASPER documents and alignments
 data/processed/
-
-# Corpus profiling outputs
 data/profiles/
 
-# Large/reconstructible retrieval-unit files.
-# Keep only the manually coded / final small artefacts listed below.
+# Large/reconstructible retrieval-unit files. Keep only the frozen coding records.
 data/retrieval_units/*
-!data/retrieval_units/query_type_coding_completed.csv
-!data/retrieval_units/query_type_coding_summary.txt
+!data/retrieval_units/query_type_coding_record.csv
 !data/retrieval_units/query_types.csv
 
-# Cross-section retrieval-unit working files.
-# Retain the coding file if used by the final analysis.
-data/retrieval_units_cross_section_challenge/*
-!data/retrieval_units_cross_section_challenge/query_type_coding.csv
+# Cross-section retrieval-unit products are reconstructible from the reviewed challenge inputs.
+data/retrieval_units_cross_section_challenge/
 
-# IMPORTANT:
-# data/subsets/ and data/subsets_cross_section_challenge/
-# are intentionally retained because they contain frozen experiment inputs.
+# Frozen experiment inputs in data/subsets/ and data/subsets_cross_section_challenge/
+# are intentionally retained.
 
-# ------------------------------------------------------------
-# Heavy generated experiment artefacts
-# ------------------------------------------------------------
-
-outputs/**/encodings/
-outputs/**/rankings/
-outputs/**/evaluation/
-outputs/**/bootstrap/
-
-outputs/**/*.npy
-outputs/**/*.npz
-outputs/**/*.pt
-outputs/**/*.pth
-outputs/**/*.safetensors
+# Generated experiment artefacts and local environment snapshots
+outputs/
+reproducibility/environment.json
 
 # Logs / temporary files
 logs/

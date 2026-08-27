@@ -773,7 +773,7 @@ def evaluate_condition(
         "evidence_policy": {
             "ranking_and_coverage": "union_of_distinct_evidence_paragraphs",
             "complete_support": "all_paragraphs_in_any_acceptable_evidence_set",
-            "sensitivity_prefix": "best_",
+            "alternative_evidence_prefix": "best_",
         },
         "precision_policy": {
             "precision_at_k": "divide_by_available_prefix_min_k_candidate_count",

@@ -40,8 +40,8 @@ def load_query_types(
     config: AppConfig,
     expected_ids: set[str],
 ) -> dict[str, str]:
-    # Query coding is independent of chunk size and therefore lives once at the
-    # retrieval-unit root instead of being duplicated under chunk_128/256/512.
+    # Query coding is independent of retrieval-unit size and therefore lives once at the
+    # retrieval-unit root instead of being duplicated across size namespaces.
     path = global_query_types_path(config)
     if not path.exists():
         if config.evaluation.require_query_types:

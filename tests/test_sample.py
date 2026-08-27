@@ -9,7 +9,6 @@ def make_config() -> AppConfig:
         {
             "project": {"seed": 42},
             "paths": {
-                "raw_dir": "data/raw",
                 "processed_dir": "data/processed",
                 "profile_dir": "data/profiles",
                 "subset_dir": "data/subsets",

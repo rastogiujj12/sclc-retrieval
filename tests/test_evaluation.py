@@ -27,7 +27,6 @@ def make_config(tmp_path: Path) -> AppConfig:
         {
             "project": {"seed": 42},
             "paths": {
-                "raw_dir": tmp_path / "raw",
                 "processed_dir": tmp_path / "processed",
                 "profile_dir": tmp_path / "profiles",
                 "subset_dir": tmp_path / "subsets",
@@ -186,7 +185,7 @@ def test_alternative_evidence_and_union_metrics_are_both_retained(tmp_path: Path
     assert row["evidence_span_coverage_at_1"] == 0.5
     # Complete support succeeds when any acceptable evidence set is complete.
     assert row["complete_evidence_at_1"] == 1.0
-    # Best-set values remain available only as sensitivity outputs.
+    # Best-set values remain available as alternative-evidence outputs.
     assert row["best_recall_at_1"] == 1.0
     assert row["best_complete_evidence_at_1"] == 1.0
     assert row["union_complete_evidence_at_1"] == 0.0

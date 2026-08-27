@@ -12,7 +12,6 @@ class ProjectConfig(BaseModel):
 
 
 class PathConfig(BaseModel):
-    raw_dir: Path
     processed_dir: Path
     profile_dir: Path
     subset_dir: Path
@@ -223,15 +222,15 @@ class EvaluationConfig(BaseModel):
                 "complete_evidence_at_token_budget_",
             ):
                 valid_metrics.add(f"{prefix}{budget}")
-        sensitivity_metrics = {f"best_{metric}" for metric in valid_metrics}
-        sensitivity_metrics.update(
+        alternative_evidence_metrics = {f"best_{metric}" for metric in valid_metrics}
+        alternative_evidence_metrics.update(
             f"union_complete_evidence_at_{cutoff}" for cutoff in self.cutoffs
         )
-        sensitivity_metrics.update(
+        alternative_evidence_metrics.update(
             f"union_complete_evidence_at_token_budget_{budget}"
             for budget in self.token_budgets
         )
-        valid_metrics.update(sensitivity_metrics)
+        valid_metrics.update(alternative_evidence_metrics)
         if self.primary_metric not in valid_metrics:
             raise ValueError(f"Unsupported evaluation.primary_metric: {self.primary_metric}")
         invalid_bootstrap = set(self.bootstrap_metrics).difference(valid_metrics)
@@ -283,7 +282,6 @@ def load_config(path: Path) -> AppConfig:
 
 def ensure_output_directories(config: AppConfig) -> None:
     for path in (
-        config.paths.raw_dir,
         config.paths.processed_dir,
         config.paths.profile_dir,
         config.paths.subset_dir,

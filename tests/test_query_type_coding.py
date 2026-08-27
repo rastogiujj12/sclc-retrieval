@@ -64,7 +64,6 @@ def test_uncertain_is_a_supported_query_type(tmp_path) -> None:
         {
             "project": {"seed": 42},
             "paths": {
-                "raw_dir": tmp_path / "raw",
                 "processed_dir": tmp_path / "processed",
                 "profile_dir": tmp_path / "profiles",
                 "subset_dir": tmp_path / "subsets",

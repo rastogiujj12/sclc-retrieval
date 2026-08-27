@@ -12,9 +12,7 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-
 FROZEN_MANIFEST = REPO_ROOT / "reproducibility/frozen_inputs.json"
-
 FROZEN_FILES = {
     "sample_manifest": REPO_ROOT / "data/subsets/selected_documents.csv",
     "query_types": REPO_ROOT / "data/retrieval_units/query_types.csv",
@@ -25,14 +23,20 @@ FROZEN_FILES = {
     "challenge_documents": REPO_ROOT
     / "data/subsets_cross_section_challenge/selected_documents.csv",
 }
-
+REMOVED_PATHS = (
+    REPO_ROOT / "data/retrieval_units/query_type_coding_completed.csv",
+    REPO_ROOT / "data/retrieval_units/query_type_coding_summary.txt",
+    REPO_ROOT / "data/retrieval_units_cross_section_challenge/query_type_coding.csv",
+    REPO_ROOT / "examples/query_types.csv",
+    REPO_ROOT / "tests/test_test_qasper_parquet_loader.py",
+)
 LEGACY_PATTERNS = (
     re.compile(r"v0\.\d+", re.IGNORECASE),
     re.compile(r"chunk[- ]size pilot", re.IGNORECASE),
     re.compile(r"chunk[- ]size sensitivity", re.IGNORECASE),
     re.compile(r"select-chunk-size", re.IGNORECASE),
+    re.compile(r"\bsensitivity analysis\b", re.IGNORECASE),
 )
-
 SEARCH_SUFFIXES = {".md", ".py", ".sh", ".yaml", ".yml", ".toml", ".cff", ".txt"}
 
 
@@ -52,7 +56,9 @@ def csv_rows(path: Path) -> list[dict[str, str]]:
 def check_frozen_inputs() -> dict[str, str]:
     for label, path in FROZEN_FILES.items():
         if not path.is_file():
-            raise SystemExit(f"Missing frozen input ({label}): {path.relative_to(REPO_ROOT)}")
+            raise SystemExit(
+                f"Missing frozen input ({label}): {path.relative_to(REPO_ROOT)}"
+            )
 
     sample = csv_rows(FROZEN_FILES["sample_manifest"])
     if len(sample) != 200:
@@ -75,6 +81,7 @@ def check_frozen_inputs() -> dict[str, str]:
     detailed_labels = {row["query_id"]: row["query_type"] for row in coding_record}
     if compact_labels != detailed_labels:
         raise SystemExit("query_types.csv does not match query_type_coding_record.csv")
+
     type_counts: dict[str, int] = {}
     for row in query_types:
         query_type = row["query_type"]
@@ -121,10 +128,15 @@ def check_frozen_inputs() -> dict[str, str]:
     return observed_hashes
 
 
+def check_removed_files() -> None:
+    remaining = [path.relative_to(REPO_ROOT) for path in REMOVED_PATHS if path.exists()]
+    if remaining:
+        raise SystemExit(f"Redundant release artefacts still exist: {remaining}")
+
+
 def check_config() -> None:
     config_path = REPO_ROOT / "configs/base.yaml"
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-
     expected_bootstrap_metrics = [
         "ndcg_at_5",
         "recall_at_5",
@@ -191,7 +203,6 @@ def check_versions() -> None:
     pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     package_init = (REPO_ROOT / "src/sclc/__init__.py").read_text(encoding="utf-8")
     citation = (REPO_ROOT / "CITATION.cff").read_text(encoding="utf-8")
-
     project_match = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.MULTILINE)
     init_match = re.search(r'__version__\s*=\s*"([^"]+)"', package_init)
     citation_match = re.search(r'^version:\s*([^\s]+)', citation, re.MULTILINE)
@@ -229,6 +240,7 @@ def check_legacy_text() -> None:
 
 def main() -> None:
     hashes = check_frozen_inputs()
+    check_removed_files()
     check_config()
     check_versions()
     check_legacy_text()
