@@ -142,11 +142,11 @@ def analyse_cross_section_challenge(
 ) -> dict[str, Any]:
     sizes = tuple(dict.fromkeys(int(size) for size in chunk_sizes))
     if not sizes or any(size <= 0 for size in sizes):
-        raise ValueError("Chunk sizes must be positive integers")
+        raise ValueError("Retrieval-unit sizes must be positive integers")
     unsupported = set(sizes).difference(config.chunking.supported_chunk_sizes)
     if unsupported:
         raise ValueError(
-            f"Unsupported chunk sizes {sorted(unsupported)}; expected a subset of "
+            f"Unsupported retrieval-unit sizes {sorted(unsupported)}; expected a subset of "
             f"{config.chunking.supported_chunk_sizes}"
         )
     if not accepted_queries_path.exists():
@@ -170,8 +170,8 @@ def analyse_cross_section_challenge(
 
     metrics = tuple(config.evaluation.bootstrap_metrics)
     output_dir = config.paths.analysis_dir / "cross_section_challenge_results" / model.value
-    summary_path = output_dir / "summary_by_chunk_size.csv"
-    comparisons_path = output_dir / "comparisons_within_chunk_size.csv"
+    summary_path = output_dir / "summary_by_retrieval_unit_size.csv"
+    comparisons_path = output_dir / "comparisons_within_retrieval_unit_size.csv"
     effects_path = output_dir / "query_scope_effects.csv"
     manifest_path = output_dir / "manifest.json"
     bootstrap_dir = output_dir / "bootstrap"
@@ -199,7 +199,7 @@ def analyse_cross_section_challenge(
 
     configuration = {
         "model": model.value,
-        "chunk_sizes": list(sizes),
+        "retrieval_unit_sizes": list(sizes),
         "conditions": [condition.value for condition in CHALLENGE_CONDITIONS],
         "comparisons": [
             [first.value, second.value]
@@ -261,7 +261,7 @@ def analyse_cross_section_challenge(
                 row: dict[str, Any] = {
                     "model_key": model.value,
                     "analysis_group": group_name,
-                    "chunk_size_tokens": size,
+                    "retrieval_unit_size_tokens": size,
                     "condition": condition.value,
                     "query_count": len(sample),
                     "document_count": sample["document_id"].nunique(),
@@ -281,13 +281,13 @@ def analyse_cross_section_challenge(
                 effect_frame = merged[_METADATA_COLUMNS].copy()
                 effect_frame["model_key"] = model.value
                 effect_frame["analysis_group"] = group_name
-                effect_frame["chunk_size_tokens"] = size
+                effect_frame["retrieval_unit_size_tokens"] = size
                 effect_frame["effect_name"] = (
-                    f"{second.value}_minus_{first.value}"
+                    f"{first.value}_minus_{second.value}"
                 )
                 for metric in metrics:
                     effect_frame[metric] = (
-                        merged[f"second__{metric}"] - merged[f"first__{metric}"]
+                        merged[f"first__{metric}"] - merged[f"second__{metric}"]
                     )
                 effect_rows.extend(effect_frame.to_dict(orient="records"))
 
@@ -315,7 +315,7 @@ def analyse_cross_section_challenge(
                         {
                             "model_key": model.value,
                             "analysis_group": group_name,
-                            "chunk_size_tokens": size,
+                            "retrieval_unit_size_tokens": size,
                             "first_condition": first.value,
                             "second_condition": second.value,
                             "metric": metric,
@@ -323,7 +323,7 @@ def analyse_cross_section_challenge(
                             "document_count": merged["document_id"].nunique(),
                             "first_mean": float(merged[f"first__{metric}"].mean()),
                             "second_mean": float(merged[f"second__{metric}"].mean()),
-                            "mean_difference_second_minus_first": observed,
+                            "mean_difference_first_minus_second": observed,
                             "confidence_lower": lower,
                             "confidence_upper": upper,
                             "bootstrap_p_value": p_value,
@@ -344,7 +344,7 @@ def analyse_cross_section_challenge(
     family = [
         "model_key",
         "analysis_group",
-        "chunk_size_tokens",
+        "retrieval_unit_size_tokens",
         "metric",
     ]
     for _, indices in comparisons.groupby(family, dropna=False).groups.items():
@@ -357,13 +357,13 @@ def analyse_cross_section_challenge(
     )
 
     summary.sort_values(
-        ["model_key", "analysis_group", "chunk_size_tokens", "condition"]
+        ["model_key", "analysis_group", "retrieval_unit_size_tokens", "condition"]
     ).to_csv(summary_path, index=False)
     comparisons.sort_values(
         [
             "model_key",
             "analysis_group",
-            "chunk_size_tokens",
+            "retrieval_unit_size_tokens",
             "metric",
             "first_condition",
             "second_condition",
@@ -374,7 +374,7 @@ def analyse_cross_section_challenge(
             "model_key",
             "analysis_group",
             "effect_name",
-            "chunk_size_tokens",
+            "retrieval_unit_size_tokens",
             "document_id",
             "query_id",
         ]
@@ -384,15 +384,15 @@ def analyse_cross_section_challenge(
         "schema_version": 1,
         "kind": "cross_section_challenge_analysis",
         "model_key": model.value,
-        "chunk_sizes": list(sizes),
+        "retrieval_unit_sizes": list(sizes),
         "configuration": configuration,
         "configuration_fingerprint": fingerprint,
         "summary_row_count": len(summary),
         "comparison_count": len(comparisons),
         "scope_effect_row_count": len(effects),
         "files": {
-            "summary_by_chunk_size": summary_path.name,
-            "comparisons_within_chunk_size": comparisons_path.name,
+            "summary_by_retrieval_unit_size": summary_path.name,
+            "comparisons_within_retrieval_unit_size": comparisons_path.name,
             "query_scope_effects": effects_path.name,
             "bootstrap_directory": bootstrap_dir.name,
         },
@@ -400,9 +400,9 @@ def analyse_cross_section_challenge(
             "The challenge set is a secondary exploratory analysis.",
             "Granite accepted_all contains all accepted questions; the common "
             "accepted_cross_model group is used for direct Granite/Jina comparison.",
-            "Within-size differences are second condition minus first condition.",
+            "Within-size differences are first condition minus second condition.",
             "Holm correction is applied across the two predefined scope comparisons "
-            "within each model, analysis group, chunk size, and metric.",
+            "within each model, analysis group, retrieval-unit size, and metric.",
         ],
     }
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")

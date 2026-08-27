@@ -5,20 +5,19 @@ from pathlib import Path
 import typer
 
 from sclc.commands import (
-    analyse_command,
-    chunk_command,
-    chunk_size_sensitivity_command,
+    challenge_analyse_command,
+    build_units_command,
+    retrieval_unit_size_command,
     compare_command,
-    evidence_structure_command,
     encode_command,
     evaluate_command,
     prepare_command,
     profile_command,
     qasper_audit_command,
     qasper_challenge_command,
+    qasper_challenge_finalize_command,
     retrieve_command,
     sample_command,
-    select_chunk_size_command,
 )
 from sclc.options import EmbeddingModel, RetrievalCondition
 
@@ -27,6 +26,25 @@ app = typer.Typer(
     help="Section-constrained late-chunking retrieval experiment.",
     no_args_is_help=True,
 )
+
+
+def _parse_retrieval_unit_sizes(value: str, *, minimum_count: int) -> tuple[int, ...]:
+    try:
+        sizes = tuple(int(item.strip()) for item in value.split(",") if item.strip())
+    except ValueError as error:
+        raise typer.BadParameter(
+            "--retrieval-unit-sizes must be a comma-separated list of integers"
+        ) from error
+    if len(sizes) < minimum_count:
+        noun = "size" if minimum_count == 1 else "sizes"
+        raise typer.BadParameter(
+            f"--retrieval-unit-sizes must contain at least {minimum_count} {noun}"
+        )
+    if any(size <= 0 for size in sizes):
+        raise typer.BadParameter("--retrieval-unit-sizes must contain positive integers")
+    if len(set(sizes)) != len(sizes):
+        raise typer.BadParameter("--retrieval-unit-sizes must not contain duplicates")
+    return sizes
 
 
 @app.command()
@@ -71,13 +89,13 @@ def sample(
     sample_command(config)
 
 
-@app.command()
-def chunk(
-    chunk_size: int | None = typer.Option(
+@app.command("build-units")
+def build_units(
+    retrieval_unit_size: int | None = typer.Option(
         None,
-        "--chunk-size",
+        "--retrieval-unit-size",
         min=1,
-        help="Chunk size in canonical tokens; defaults to chunking.chunk_size_tokens.",
+        help="Retrieval-unit size in canonical tokens; defaults to the configured primary size.",
     ),
     config: Path = typer.Option(
         Path("configs/base.yaml"),
@@ -88,7 +106,7 @@ def chunk(
     ),
 ) -> None:
     """Construct canonical continuous and section-bounded retrieval units."""
-    chunk_command(config, chunk_size=chunk_size)
+    build_units_command(config, retrieval_unit_size=retrieval_unit_size)
 
 
 @app.command()
@@ -105,11 +123,11 @@ def encode(
         case_sensitive=False,
         help="Required for dense conditions; omit for BM25.",
     ),
-    chunk_size: int | None = typer.Option(
+    retrieval_unit_size: int | None = typer.Option(
         None,
-        "--chunk-size",
+        "--retrieval-unit-size",
         min=1,
-        help="Chunk size namespace; defaults to chunking.chunk_size_tokens.",
+        help="Retrieval-unit size namespace; defaults to the configured primary size.",
     ),
     overwrite: bool = typer.Option(
         False,
@@ -129,7 +147,7 @@ def encode(
         config,
         condition=condition,
         model=model,
-        chunk_size=chunk_size,
+        retrieval_unit_size=retrieval_unit_size,
         overwrite=overwrite,
     )
 
@@ -148,11 +166,11 @@ def retrieve(
         case_sensitive=False,
         help="Required for dense conditions; omit for BM25.",
     ),
-    chunk_size: int | None = typer.Option(
+    retrieval_unit_size: int | None = typer.Option(
         None,
-        "--chunk-size",
+        "--retrieval-unit-size",
         min=1,
-        help="Chunk size namespace; defaults to chunking.chunk_size_tokens.",
+        help="Retrieval-unit size namespace; defaults to the configured primary size.",
     ),
     overwrite: bool = typer.Option(
         False,
@@ -172,7 +190,7 @@ def retrieve(
         config,
         condition=condition,
         model=model,
-        chunk_size=chunk_size,
+        retrieval_unit_size=retrieval_unit_size,
         overwrite=overwrite,
     )
 
@@ -191,11 +209,11 @@ def evaluate(
         case_sensitive=False,
         help="Required for dense conditions; omit for BM25.",
     ),
-    chunk_size: int | None = typer.Option(
+    retrieval_unit_size: int | None = typer.Option(
         None,
-        "--chunk-size",
+        "--retrieval-unit-size",
         min=1,
-        help="Chunk size namespace; defaults to chunking.chunk_size_tokens.",
+        help="Retrieval-unit size namespace; defaults to the configured primary size.",
     ),
     overwrite: bool = typer.Option(
         False,
@@ -215,7 +233,7 @@ def evaluate(
         config,
         condition=condition,
         model=model,
-        chunk_size=chunk_size,
+        retrieval_unit_size=retrieval_unit_size,
         overwrite=overwrite,
     )
 
@@ -231,11 +249,11 @@ def compare(
             "configured models have been evaluated."
         ),
     ),
-    chunk_size: int | None = typer.Option(
+    retrieval_unit_size: int | None = typer.Option(
         None,
-        "--chunk-size",
+        "--retrieval-unit-size",
         min=1,
-        help="Selected chunk size namespace.",
+        help="Selected retrieval-unit-size namespace.",
     ),
     overwrite: bool = typer.Option(
         False,
@@ -252,79 +270,10 @@ def compare(
 ) -> None:
     """Run document-level paired bootstrap comparisons and Holm correction."""
     compare_command(
-        config, model=model, chunk_size=chunk_size, overwrite=overwrite
-    )
-
-
-@app.command("analyse")
-def analyse(
-    model: EmbeddingModel | None = typer.Option(
-        None,
-        "--model",
-        case_sensitive=False,
-        help=(
-            "Restrict scope-effect analysis to one embedding model. Omit only "
-            "after all configured models have been evaluated."
-        ),
-    ),
-    chunk_size: int | None = typer.Option(
-        None,
-        "--chunk-size",
-        min=1,
-        help="Selected chunk size namespace.",
-    ),
-    overwrite: bool = typer.Option(
-        False,
-        "--overwrite",
-        help="Rebuild cached scope-effect analysis outputs.",
-    ),
-    config: Path = typer.Option(
-        Path("configs/base.yaml"),
-        exists=True,
-        dir_okay=False,
-        readable=True,
-        help="Path to the YAML configuration.",
-    ),
-) -> None:
-    """Relate section-constrained minus global performance to paper structure."""
-    analyse_command(
-        config, model=model, chunk_size=chunk_size, overwrite=overwrite
-    )
-
-
-@app.command("evidence-structure")
-def evidence_structure(
-    model: EmbeddingModel | None = typer.Option(
-        None,
-        "--model",
-        case_sensitive=False,
-        help=(
-            "Restrict evidence-structure analysis to one embedding model. "
-            "Omit only after all configured models have been evaluated."
-        ),
-    ),
-    chunk_size: int | None = typer.Option(
-        None,
-        "--chunk-size",
-        min=1,
-        help="Selected chunk size namespace.",
-    ),
-    overwrite: bool = typer.Option(
-        False,
-        "--overwrite",
-        help="Rebuild cached evidence-structure outputs.",
-    ),
-    config: Path = typer.Option(
-        Path("configs/base.yaml"),
-        exists=True,
-        dir_okay=False,
-        readable=True,
-        help="Path to the YAML configuration.",
-    ),
-) -> None:
-    """Analyse retrieval by single-, same-section-, and cross-section evidence."""
-    evidence_structure_command(
-        config, model=model, chunk_size=chunk_size, overwrite=overwrite
+        config,
+        model=model,
+        retrieval_unit_size=retrieval_unit_size,
+        overwrite=overwrite,
     )
 
 
@@ -366,23 +315,84 @@ def qasper_challenge(
     qasper_challenge_command(config, overwrite=overwrite)
 
 
-@app.command("chunk-size-sensitivity")
-def chunk_size_sensitivity(
+@app.command("qasper-challenge-finalize")
+def qasper_challenge_finalize(
+    decisions: Path = typer.Option(
+        Path("data/subsets_cross_section_challenge/review_decisions.csv"),
+        "--decisions",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="Completed manual review decisions.",
+    ),
+    overwrite: bool = typer.Option(False, "--overwrite"),
+    config: Path = typer.Option(
+        Path("configs/base.yaml"),
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="Path to the primary YAML configuration.",
+    ),
+) -> None:
+    """Validate the manual review and freeze the accepted challenge questions."""
+    qasper_challenge_finalize_command(
+        config, decisions_path=decisions, overwrite=overwrite
+    )
+
+
+@app.command("challenge-analyse")
+def challenge_analyse(
+    model: EmbeddingModel = typer.Option(
+        EmbeddingModel.JINA, "--model", case_sensitive=False
+    ),
+    accepted_queries: Path = typer.Option(
+        Path("data/subsets_cross_section_challenge/review_decisions.csv"),
+        "--accepted-queries",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="Reviewed challenge decisions containing the accepted query IDs.",
+    ),
+    retrieval_unit_sizes: str = typer.Option(
+        "128,256,512", "--retrieval-unit-sizes"
+    ),
+    overwrite: bool = typer.Option(False, "--overwrite"),
+    config: Path = typer.Option(
+        Path("configs/cross_section_challenge.yaml"),
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="Path to the challenge YAML configuration.",
+    ),
+) -> None:
+    """Analyse the accepted cross-section challenge questions."""
+    parsed_sizes = _parse_retrieval_unit_sizes(retrieval_unit_sizes, minimum_count=1)
+    challenge_analyse_command(
+        config,
+        accepted_queries_path=accepted_queries,
+        model=model,
+        retrieval_unit_sizes=parsed_sizes,
+        overwrite=overwrite,
+    )
+
+
+@app.command("retrieval-unit-size")
+def retrieval_unit_size(
     model: EmbeddingModel = typer.Option(
         ...,
         "--model",
         case_sensitive=False,
         help="Embedding model whose completed evaluations should be analysed.",
     ),
-    chunk_sizes: str = typer.Option(
+    retrieval_unit_sizes: str = typer.Option(
         "128,256,512",
-        "--chunk-sizes",
-        help="Comma-separated chunk sizes with completed dense evaluations.",
+        "--retrieval-unit-sizes",
+        help="Comma-separated retrieval-unit sizes with completed dense evaluations.",
     ),
     overwrite: bool = typer.Option(
         False,
         "--overwrite",
-        help="Rebuild cached chunk-size sensitivity outputs.",
+        help="Rebuild cached retrieval-unit-size analysis outputs.",
     ),
     config: Path = typer.Option(
         Path("configs/base.yaml"),
@@ -392,44 +402,14 @@ def chunk_size_sensitivity(
         help="Path to the YAML configuration.",
     ),
 ) -> None:
-    """Compare dense retrieval scope across multiple chunk sizes."""
-    try:
-        parsed_sizes = tuple(
-            int(value.strip())
-            for value in chunk_sizes.split(",")
-            if value.strip()
-        )
-    except ValueError as error:
-        raise typer.BadParameter(
-            "--chunk-sizes must be a comma-separated list of integers"
-        ) from error
-    if len(parsed_sizes) < 2:
-        raise typer.BadParameter("--chunk-sizes must contain at least two sizes")
-    chunk_size_sensitivity_command(
+    """Analyse retrieval performance across 128, 256, and 512-token units."""
+    parsed_sizes = _parse_retrieval_unit_sizes(retrieval_unit_sizes, minimum_count=2)
+    retrieval_unit_size_command(
         config,
         model=model,
-        chunk_sizes=parsed_sizes,
+        retrieval_unit_sizes=parsed_sizes,
         overwrite=overwrite,
     )
-
-
-@app.command("select-chunk-size")
-def select_chunk_size(
-    overwrite: bool = typer.Option(
-        False,
-        "--overwrite",
-        help="Rebuild the validation-only chunk-size pilot analysis.",
-    ),
-    config: Path = typer.Option(
-        Path("configs/base.yaml"),
-        exists=True,
-        dir_okay=False,
-        readable=True,
-        help="Path to the YAML configuration.",
-    ),
-) -> None:
-    """Select one chunk size using validation-only BM25 and Granite dense pilots."""
-    select_chunk_size_command(config, overwrite=overwrite)
 
 
 if __name__ == "__main__":

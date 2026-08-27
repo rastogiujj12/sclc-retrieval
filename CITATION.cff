@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this software artefact, please cite the repository and the associated MSc dissertation."
+title: "Section-Constrained Late Chunking for Academic Retrieval: An Ablation Study"
+type: software
+authors:
+  - family-names: Rastogi
+    given-names: Ujjwal
+version: 1.0.0
+repository-code: "https://github.com/rastogiujj12/sclc-retrieval"
+license: MIT
+keywords:
+  - retrieval-augmented generation
+  - dense retrieval
+  - late chunking
+  - contextual encoding scope
+  - academic retrieval

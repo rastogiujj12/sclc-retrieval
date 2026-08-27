@@ -4,11 +4,26 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from sclc.analysis.chunk_size_sensitivity import analyse_chunk_size_sensitivity
+from sclc.analysis.retrieval_unit_size import SCOPE_EFFECTS, analyse_retrieval_unit_size
 from sclc.config import AppConfig
-from sclc.options import EmbeddingModel
+from sclc.options import EmbeddingModel, RetrievalCondition
 from sclc.paths import evaluation_dir
 
+
+
+def test_scope_effect_directions_match_dissertation() -> None:
+    assert SCOPE_EFFECTS == (
+        (
+            "section_isolated_minus_section_constrained",
+            RetrievalCondition.SECTION_ISOLATED,
+            RetrievalCondition.SECTION_CONSTRAINED,
+        ),
+        (
+            "section_constrained_minus_global",
+            RetrievalCondition.SECTION_CONSTRAINED,
+            RetrievalCondition.GLOBAL,
+        ),
+    )
 
 def make_config(tmp_path: Path) -> AppConfig:
     return AppConfig.model_validate(
@@ -92,7 +107,7 @@ def write_evaluation(
     )
 
 
-def test_chunk_size_sensitivity_uses_all_and_test_queries(tmp_path: Path) -> None:
+def test_retrieval_unit_size_uses_all_and_test_queries(tmp_path: Path) -> None:
     config = make_config(tmp_path)
     base_by_condition = {
         "fixed_dense": 0.7,
@@ -103,7 +118,7 @@ def test_chunk_size_sensitivity_uses_all_and_test_queries(tmp_path: Path) -> Non
     for size in (128, 256, 512):
         size_shift = {128: 0.0, 256: 0.02, 512: 0.04}[size]
         for condition, base in base_by_condition.items():
-            # Make the section-constrained minus global effect decrease as chunks grow.
+            # Make the section-constrained minus global effect decrease as retrieval units grow.
             condition_shift = 0.0
             if condition == "global":
                 condition_shift = {128: 0.0, 256: 0.05, 512: 0.10}[size]
@@ -121,18 +136,18 @@ def test_chunk_size_sensitivity_uses_all_and_test_queries(tmp_path: Path) -> Non
                 scores=scores,
             )
 
-    manifest = analyse_chunk_size_sensitivity(
+    manifest = analyse_retrieval_unit_size(
         config,
         model=EmbeddingModel.GRANITE,
         chunk_sizes=(128, 256, 512),
     )
-    output_dir = config.paths.analysis_dir / "chunk_size_sensitivity" / "granite"
-    summary = pd.read_csv(output_dir / manifest["files"]["summary_by_chunk_size"])
+    output_dir = config.paths.analysis_dir / "retrieval_unit_size" / "granite"
+    summary = pd.read_csv(output_dir / manifest["files"]["summary_by_retrieval_unit_size"])
     comparisons = pd.read_csv(
-        output_dir / manifest["files"]["comparisons_within_chunk_size"]
+        output_dir / manifest["files"]["comparisons_within_retrieval_unit_size"]
     )
     interactions = pd.read_csv(
-        output_dir / manifest["files"]["scope_interactions_across_chunk_sizes"]
+        output_dir / manifest["files"]["scope_interactions_across_retrieval_unit_sizes"]
     )
 
     assert set(summary["sample_scope"]) == {"all_questions", "split_test"}
@@ -146,15 +161,16 @@ def test_chunk_size_sensitivity_uses_all_and_test_queries(tmp_path: Path) -> Non
         & (summary["sample_scope"] == "split_test")
     ]
     assert set(test_questions["query_count"]) == {2}
-    assert set(comparisons["chunk_size_tokens"]) == {128, 256, 512}
+    assert set(comparisons["retrieval_unit_size_tokens"]) == {128, 256, 512}
+    assert "mean_difference_first_minus_second" in comparisons.columns
 
     central = interactions[
         (interactions["analysis_set"] == "cross_model_core")
         & (interactions["sample_scope"] == "all_questions")
         & (interactions["effect_name"] == "section_constrained_minus_global")
         & (interactions["metric"] == "ndcg_at_5")
-        & (interactions["first_chunk_size_tokens"] == 128)
-        & (interactions["second_chunk_size_tokens"] == 512)
+        & (interactions["first_retrieval_unit_size_tokens"] == 128)
+        & (interactions["second_retrieval_unit_size_tokens"] == 512)
     ]
     assert len(central) == 1
     assert central.iloc[0][

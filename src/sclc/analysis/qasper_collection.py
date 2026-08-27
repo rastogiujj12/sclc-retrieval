@@ -515,8 +515,8 @@ def audit_qasper_collection(
             "does not change the frozen primary sample.",
             "Strict cross-section candidates require every acceptable evidence "
             "route to span multiple top-level sections.",
-            "Validation questions are flagged and excluded from the proposed new "
-            "challenge pool because validation informed chunk-size selection.",
+            "The dissertation challenge uses only the original QASPER test split; "
+            "train and validation candidates remain audit-only records.",
             "Train and test candidates are reported separately; no challenge set "
             "is sampled automatically.",
         ],

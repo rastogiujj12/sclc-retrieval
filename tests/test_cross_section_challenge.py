@@ -133,7 +133,9 @@ def test_challenge_freeze_creates_blinded_review_and_fixed_subsets(tmp_path: Pat
     assert cached["configuration_fingerprint"] == manifest["configuration_fingerprint"]
 
 
-def test_finalize_cross_section_challenge_validates_review_and_writes_sample(tmp_path: Path) -> None:
+def test_finalize_cross_section_challenge_validates_review_and_writes_sample(
+    tmp_path: Path,
+) -> None:
     config = make_config(tmp_path)
     audit_dir = config.paths.analysis_dir / "qasper_collection_audit"
     audit_dir.mkdir(parents=True)

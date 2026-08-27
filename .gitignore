@@ -42,6 +42,9 @@ Code.zip
 # Reconstructible dataset products
 # ------------------------------------------------------------
 
+# Downloaded/raw QASPER files
+data/raw/
+
 # Prepared QASPER documents and alignments
 data/processed/
 
@@ -51,14 +54,11 @@ data/profiles/
 # Large/reconstructible retrieval-unit files.
 # Keep only the manually coded / final small artefacts listed below.
 data/retrieval_units/*
-!data/retrieval_units/query_type_coding_completed.csv
-!data/retrieval_units/query_type_coding_summary.txt
+!data/retrieval_units/query_type_coding_record.csv
 !data/retrieval_units/query_types.csv
 
-# Cross-section retrieval-unit working files.
-# Retain the coding file if used by the final analysis.
-data/retrieval_units_cross_section_challenge/*
-!data/retrieval_units_cross_section_challenge/query_type_coding.csv
+# Cross-section retrieval-unit working files are reconstructible.
+data/retrieval_units_cross_section_challenge/
 
 # IMPORTANT:
 # data/subsets/ and data/subsets_cross_section_challenge/

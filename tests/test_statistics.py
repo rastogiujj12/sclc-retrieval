@@ -1,14 +1,24 @@
 import pandas as pd
 import pytest
 
-from sclc.evaluation.statistics import holm_adjust, paired_document_bootstrap
+from sclc.evaluation.statistics import COMPARISONS, holm_adjust, paired_document_bootstrap
+from sclc.options import RetrievalCondition
 
+
+
+def test_primary_comparison_directions_match_dissertation() -> None:
+    assert COMPARISONS == (
+        (RetrievalCondition.BM25, RetrievalCondition.FIXED_DENSE),
+        (RetrievalCondition.SECTION_ISOLATED, RetrievalCondition.FIXED_DENSE),
+        (RetrievalCondition.SECTION_CONSTRAINED, RetrievalCondition.SECTION_ISOLATED),
+        (RetrievalCondition.GLOBAL, RetrievalCondition.SECTION_CONSTRAINED),
+    )
 
 def test_holm_adjustment_is_monotonic_in_sorted_order() -> None:
     assert holm_adjust([0.01, 0.04, 0.03]) == pytest.approx([0.03, 0.06, 0.06])
 
 
-def test_document_bootstrap_preserves_paired_positive_difference() -> None:
+def test_document_bootstrap_uses_first_minus_second_difference() -> None:
     frame = pd.DataFrame(
         {
             "document_id": ["d1", "d1", "d2"],
@@ -24,9 +34,9 @@ def test_document_bootstrap_preserves_paired_positive_difference() -> None:
         confidence_level=0.95,
         seed=42,
     )
-    assert observed == pytest.approx(1.0)
-    assert lower == pytest.approx(1.0)
-    assert upper == pytest.approx(1.0)
+    assert observed == pytest.approx(-1.0)
+    assert lower == pytest.approx(-1.0)
+    assert upper == pytest.approx(-1.0)
     assert p_value < 0.02
     assert len(samples) == 200
 
@@ -134,8 +144,9 @@ def test_compare_conditions_writes_pairwise_and_error_analysis_outputs(tmp_path)
     assert not comparisons.empty
     assert not candidates.empty
     assert set(comparisons["first_condition"]).issuperset(
-        {"bm25", "fixed_dense", "section_isolated", "section_constrained"}
+        {"bm25", "section_isolated", "section_constrained", "global"}
     )
+    assert "mean_difference_first_minus_second" in comparisons.columns
     assert list((output_dir / "bootstrap").glob("*.npz"))
 
     # Granite-only confirmatory analysis must not require Jina outputs.

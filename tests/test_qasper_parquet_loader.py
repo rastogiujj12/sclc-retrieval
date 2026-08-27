@@ -17,9 +17,18 @@ def test_qasper_parquet_urls_are_configured() -> None:
                 "subset": "qasper",
                 "splits": ["train", "validation", "test"],
                 "parquet_files": {
-                    "train": "https://huggingface.co/datasets/allenai/qasper/resolve/refs%2Fconvert%2Fparquet/qasper/train/0000.parquet",
-                    "validation": "https://huggingface.co/datasets/allenai/qasper/resolve/refs%2Fconvert%2Fparquet/qasper/validation/0000.parquet",
-                    "test": "https://huggingface.co/datasets/allenai/qasper/resolve/refs%2Fconvert%2Fparquet/qasper/test/0000.parquet",
+                    "train": (
+                        "https://huggingface.co/datasets/allenai/qasper/resolve/"
+                        "refs%2Fconvert%2Fparquet/qasper/train/0000.parquet"
+                    ),
+                    "validation": (
+                        "https://huggingface.co/datasets/allenai/qasper/resolve/"
+                        "refs%2Fconvert%2Fparquet/qasper/validation/0000.parquet"
+                    ),
+                    "test": (
+                        "https://huggingface.co/datasets/allenai/qasper/resolve/"
+                        "refs%2Fconvert%2Fparquet/qasper/test/0000.parquet"
+                    ),
                 },
             },
             "document": {},

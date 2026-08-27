@@ -12,7 +12,7 @@ from sclc.config import AppConfig
 
 
 CHALLENGE_DIRNAME = "qasper_cross_section_challenge"
-CHALLENGE_VERSION = "1.0"
+# Fixed seed preserved so regenerated review IDs match the committed manual review.
 REVIEW_ORDER_SEED = "sclc-qasper-strict-cross-section-review-v1"
 
 
@@ -45,23 +45,35 @@ def _review_order(query_id: str) -> str:
 def _write_review_instructions(path: Path) -> None:
     text = """# Blinded review instructions
 
-Review all rows without opening `review_key.csv`, retrieval rankings, or condition-level results. Decisions must be based only on the question and annotated evidence.
+Review all rows without opening `review_key.csv`, retrieval rankings, or
+condition-level results. Decisions must be based only on the question and
+annotated evidence.
 
 ## Required fields
 
 - `include`: `yes` or `no`.
-- `joint_evidence_required`: `yes`, `no`, or `unclear`. Select `yes` only when evidence from multiple top-level sections is genuinely needed for a complete answer.
-- `duplicate_support`: `yes`, `no`, or `unclear`. Select `yes` when the sections merely repeat equivalent support.
+- `joint_evidence_required`: `yes`, `no`, or `unclear`. Select `yes` only when
+  evidence from multiple top-level sections is genuinely needed for a complete
+  answer.
+- `duplicate_support`: `yes`, `no`, or `unclear`. Select `yes` when the sections
+  merely repeat equivalent support.
 - `section_mapping_valid`: `yes`, `no`, or `unclear`.
 - `answerable_from_evidence`: `yes`, `no`, or `unclear`.
-- `rejection_reason`: leave blank when included. Otherwise use one of: `duplicate_evidence`, `one_section_is_actually_sufficient`, `incorrect_section_mapping`, `evidence_not_jointly_required`, `ambiguous_or_unsupported_question`, or `other`.
+- `rejection_reason`: leave blank when included. Otherwise use one of:
+  `duplicate_evidence`, `one_section_is_actually_sufficient`,
+  `incorrect_section_mapping`, `evidence_not_jointly_required`,
+  `ambiguous_or_unsupported_question`, or `other`.
 - `reviewer_notes`: a short reason supporting the decision.
 
 ## Inclusion rule
 
-Include a question only when the section mapping is valid, the answer is supported, and evidence from at least two top-level sections is genuinely required rather than duplicated or optional. Use `unclear` rather than guessing.
+Include a question only when the section mapping is valid, the answer is
+supported, and evidence from at least two top-level sections is genuinely
+required rather than duplicated or optional. Use `unclear` rather than
+guessing.
 
-The review sheet is deliberately separated from `review_key.csv`, which contains query identifiers and challenge-set membership.
+The review sheet is deliberately separated from `review_key.csv`, which
+contains query identifiers and challenge-set membership.
 """
     path.write_text(text, encoding="utf-8")
 
@@ -85,7 +97,6 @@ def freeze_cross_section_challenge(
     audit_manifest = json.loads(audit_manifest_path.read_text(encoding="utf-8"))
 
     selection_policy = {
-        "challenge_version": CHALLENGE_VERSION,
         "source_candidate_sha256": _file_sha256(candidates_path),
         "source_audit_fingerprint": audit_manifest.get(
             "configuration_fingerprint"
@@ -142,7 +153,6 @@ def freeze_cross_section_challenge(
         ].tolist()
         raise RuntimeError(f"Duplicate challenge query IDs: {duplicates[:5]}")
 
-    challenge["challenge_version"] = CHALLENGE_VERSION
     challenge["review_sort_key"] = challenge["query_id"].map(_review_order)
     challenge = challenge.sort_values("review_sort_key").reset_index(drop=True)
     challenge["review_id"] = [
@@ -173,7 +183,7 @@ def freeze_cross_section_challenge(
     }
     if observed_counts != expected_counts:
         raise RuntimeError(
-            "Challenge counts differ from the frozen v1 design: "
+            "Challenge counts differ from the frozen challenge design: "
             f"expected {expected_counts}, observed {observed_counts}."
         )
 
@@ -188,7 +198,6 @@ def freeze_cross_section_challenge(
     instructions_path = output_dir / "REVIEW_INSTRUCTIONS.md"
 
     frozen_columns = [
-        "challenge_version",
         "review_id",
         "query_id",
         "document_id",
@@ -310,7 +319,6 @@ def freeze_cross_section_challenge(
     manifest = {
         "schema_version": 1,
         "kind": "qasper_strict_cross_section_challenge_freeze",
-        "challenge_version": CHALLENGE_VERSION,
         "configuration": selection_policy,
         "configuration_fingerprint": configuration_fingerprint,
         "counts": observed_counts,
@@ -386,7 +394,6 @@ def finalize_cross_section_challenge(
     decisions_hash = _file_sha256(decisions_path)
     freeze_manifest = json.loads(freeze_manifest_path.read_text(encoding="utf-8"))
     configuration = {
-        "challenge_version": CHALLENGE_VERSION,
         "freeze_fingerprint": freeze_manifest.get("configuration_fingerprint"),
         "decisions_sha256": decisions_hash,
         "decision_rule": (
@@ -600,7 +607,6 @@ def finalize_cross_section_challenge(
     manifest = {
         "schema_version": 1,
         "kind": "qasper_strict_cross_section_challenge_finalized",
-        "challenge_version": CHALLENGE_VERSION,
         "configuration": configuration,
         "configuration_fingerprint": configuration_fingerprint,
         "counts": counts,
@@ -636,7 +642,6 @@ def finalize_cross_section_challenge(
 
 __all__ = [
     "CHALLENGE_DIRNAME",
-    "CHALLENGE_VERSION",
     "freeze_cross_section_challenge",
     "finalize_cross_section_challenge",
 ]

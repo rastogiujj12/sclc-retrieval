@@ -15,10 +15,11 @@ from sclc.paths import evaluation_dir
 
 
 COMPARISONS: tuple[tuple[RetrievalCondition, RetrievalCondition], ...] = (
+    # Every signed comparison follows first condition minus second condition.
     (RetrievalCondition.BM25, RetrievalCondition.FIXED_DENSE),
-    (RetrievalCondition.FIXED_DENSE, RetrievalCondition.SECTION_ISOLATED),
-    (RetrievalCondition.SECTION_ISOLATED, RetrievalCondition.SECTION_CONSTRAINED),
-    (RetrievalCondition.SECTION_CONSTRAINED, RetrievalCondition.GLOBAL),
+    (RetrievalCondition.SECTION_ISOLATED, RetrievalCondition.FIXED_DENSE),
+    (RetrievalCondition.SECTION_CONSTRAINED, RetrievalCondition.SECTION_ISOLATED),
+    (RetrievalCondition.GLOBAL, RetrievalCondition.SECTION_CONSTRAINED),
 )
 
 
@@ -80,7 +81,7 @@ def paired_document_bootstrap(
     documents = sorted(frame["document_id"].astype(str).unique())
     if not documents:
         raise ValueError("No documents are available for bootstrapping")
-    differences = frame[second_column].to_numpy(dtype=float) - frame[first_column].to_numpy(
+    differences = frame[first_column].to_numpy(dtype=float) - frame[second_column].to_numpy(
         dtype=float
     )
     observed = float(differences.mean())
@@ -278,13 +279,13 @@ def compare_conditions(
                     primary_metric = metric_columns[0]
                 difference_column = f"difference__{primary_metric}"
                 merged[difference_column] = (
-                    merged[f"second__{primary_metric}"]
-                    - merged[f"first__{primary_metric}"]
+                    merged[f"first__{primary_metric}"]
+                    - merged[f"second__{primary_metric}"]
                 )
                 count = config.evaluation.error_analysis_per_direction
                 extremes = [
                     (
-                        "second_better",
+                        "first_better",
                         merged[merged[difference_column] > 0]
                         .sort_values(
                             [difference_column, "query_id"], ascending=[False, True]
@@ -292,7 +293,7 @@ def compare_conditions(
                         .head(count),
                     ),
                     (
-                        "first_better",
+                        "second_better",
                         merged[merged[difference_column] < 0]
                         .sort_values(
                             [difference_column, "query_id"], ascending=[True, True]
@@ -323,7 +324,7 @@ def compare_conditions(
                                 "second_score": float(
                                     candidate[f"second__{primary_metric}"]
                                 ),
-                                "difference_second_minus_first": float(
+                                "difference_first_minus_second": float(
                                     candidate[difference_column]
                                 ),
                             }
@@ -368,7 +369,7 @@ def compare_conditions(
                                 "document_count": group["document_id"].nunique(),
                                 "first_mean": group[f"first__{metric}"].mean(),
                                 "second_mean": group[f"second__{metric}"].mean(),
-                                "mean_difference_second_minus_first": observed,
+                                "mean_difference_first_minus_second": observed,
                                 "confidence_lower": lower,
                                 "confidence_upper": upper,
                                 "bootstrap_p_value": p_value,

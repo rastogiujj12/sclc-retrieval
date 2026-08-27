@@ -15,7 +15,7 @@ from sclc.paths import (
     encoding_dir,
     evaluation_dir,
     ranking_dir,
-    resolve_chunk_size,
+    resolve_retrieval_unit_size,
     retrieval_unit_dir,
 )
 
@@ -58,10 +58,10 @@ def test_chunk_dependent_outputs_are_namespaced(tmp_path: Path) -> None:
     assert encoding_dir(config, 256).name == "chunk_256"
     assert ranking_dir(config, 512).name == "chunk_512"
     assert evaluation_dir(config, 128).name == "chunk_128"
-    assert resolve_chunk_size(config, None) == 512
-    assert resolve_chunk_size(config, 256) == 256
+    assert resolve_retrieval_unit_size(config, None) == 512
+    assert resolve_retrieval_unit_size(config, 256) == 256
     with pytest.raises(ValueError, match="expected one of"):
-        resolve_chunk_size(config, 300)
+        resolve_retrieval_unit_size(config, 300)
 
 
 def test_full_ranking_metrics() -> None:
@@ -96,19 +96,3 @@ def test_token_budget_uses_a_ranked_prefix_without_skipping() -> None:
     # skipped because token-budget retrieval must remain a ranking prefix.
     assert prefix == ["a", "b"]
     assert tokens == 256
-
-
-def test_pilot_chunk_sizes_must_be_supported(tmp_path: Path) -> None:
-    payload = make_config(tmp_path).model_dump()
-    payload["pilot"]["chunk_sizes"] = [128, 300, 512]
-    with pytest.raises(ValueError, match="pilot.chunk_sizes"):
-        AppConfig.model_validate(payload)
-
-
-def test_pilot_token_budget_metric_must_be_configured(tmp_path: Path) -> None:
-    payload = make_config(tmp_path).model_dump()
-    payload["pilot"]["primary_metric"] = (
-        "evidence_paragraph_recall_at_token_budget_999"
-    )
-    with pytest.raises(ValueError, match="Pilot metrics"):
-        AppConfig.model_validate(payload)

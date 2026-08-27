@@ -58,7 +58,6 @@ def make_config(tmp_path: Path) -> AppConfig:
                 "bootstrap_metrics": METRICS,
                 "require_query_types": False,
             },
-            "pilot": {"chunk_sizes": [128, 256]},
         }
     )
 
@@ -152,8 +151,8 @@ def test_cross_section_analysis_filters_accepted_queries(tmp_path: Path) -> None
         / "cross_section_challenge_results"
         / "granite"
     )
-    summary = pd.read_csv(output_dir / "summary_by_chunk_size.csv")
-    comparisons = pd.read_csv(output_dir / "comparisons_within_chunk_size.csv")
+    summary = pd.read_csv(output_dir / "summary_by_retrieval_unit_size.csv")
+    comparisons = pd.read_csv(output_dir / "comparisons_within_retrieval_unit_size.csv")
     assert set(summary["analysis_group"]) == {
         "accepted_all",
         "accepted_cross_model",
@@ -163,3 +162,4 @@ def test_cross_section_analysis_filters_accepted_queries(tmp_path: Path) -> None
         summary.loc[summary["analysis_group"] == "accepted_cross_model", "query_count"]
     ) == {2}
     assert len(comparisons) == 2 * 2 * 2 * len(METRICS)
+    assert "mean_difference_first_minus_second" in comparisons.columns

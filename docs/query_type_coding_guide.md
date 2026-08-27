@@ -1,6 +1,6 @@
 # Query-Type Coding Guide
 
-Code every retained QASPER question **after the final sampled query set has been fixed and before running retrieval or inspecting rankings**. Use only the question and its annotated evidence locations in `query_type_coding.csv`. Do not use retrieval scores or retrieved units while coding.
+Code every retained QASPER question **after the final sampled query set has been fixed and before running retrieval or inspecting rankings**. Use only the question and its annotated evidence locations in the generated `query_type_coding.csv` worksheet. Do not use retrieval scores or retrieved units while coding.
 
 Allowed labels:
 
@@ -64,7 +64,7 @@ When more than one label seems plausible, apply these rules:
 
 ## Coding procedure
 
-1. Work from `data/retrieval_units/query_type_coding.csv`.
+1. Generate the worksheet with the retrieval-unit construction stage and work from `data/retrieval_units/query_type_coding.csv`.
 2. Read the question, evidence counts, and evidence section headings.
 3. Consult the annotated evidence text in the prepared document only when the worksheet is insufficient.
 4. Assign exactly one allowed label to every query.
@@ -72,4 +72,4 @@ When more than one label seems plausible, apply these rules:
 6. Save at least the columns `query_id,query_type` as `data/retrieval_units/query_types.csv`.
 7. Check for blanks, duplicate query IDs, and invalid spellings before retrieval.
 
-For a reliability check, independently recode a random sample after a delay or ask a second coder to label a subset. Report the procedure and agreement in the dissertation; do not change labels after viewing method performance unless the correction is documented and made blind to condition identity.
+The final dissertation used single-researcher manual coding with this predefined guide. No independent second coder or inter-rater reliability estimate was used. Query-type findings are therefore treated as supporting analyses, particularly for the smaller multi-hop and synthesis groups.

@@ -23,9 +23,10 @@ DENSE_CONDITIONS: tuple[RetrievalCondition, ...] = (
 WITHIN_SIZE_COMPARISONS: tuple[
     tuple[RetrievalCondition, RetrievalCondition], ...
 ] = (
-    (RetrievalCondition.FIXED_DENSE, RetrievalCondition.SECTION_ISOLATED),
-    (RetrievalCondition.SECTION_ISOLATED, RetrievalCondition.SECTION_CONSTRAINED),
-    (RetrievalCondition.SECTION_CONSTRAINED, RetrievalCondition.GLOBAL),
+    # Match the signed directions used in the dissertation's primary table.
+    (RetrievalCondition.SECTION_ISOLATED, RetrievalCondition.FIXED_DENSE),
+    (RetrievalCondition.SECTION_CONSTRAINED, RetrievalCondition.SECTION_ISOLATED),
+    (RetrievalCondition.GLOBAL, RetrievalCondition.SECTION_CONSTRAINED),
 )
 
 SCOPE_EFFECTS: tuple[
@@ -33,13 +34,13 @@ SCOPE_EFFECTS: tuple[
 ] = (
     (
         "section_isolated_minus_section_constrained",
-        RetrievalCondition.SECTION_CONSTRAINED,
         RetrievalCondition.SECTION_ISOLATED,
+        RetrievalCondition.SECTION_CONSTRAINED,
     ),
     (
         "section_constrained_minus_global",
-        RetrievalCondition.GLOBAL,
         RetrievalCondition.SECTION_CONSTRAINED,
+        RetrievalCondition.GLOBAL,
     ),
 )
 
@@ -146,7 +147,7 @@ def _bootstrap_filename(identifier: str) -> str:
     return f"bootstrap_{safe_name}.npz"
 
 
-def analyse_chunk_size_sensitivity(
+def analyse_retrieval_unit_size(
     config: AppConfig,
     *,
     model: EmbeddingModel,
@@ -155,22 +156,22 @@ def analyse_chunk_size_sensitivity(
 ) -> dict[str, Any]:
     sizes = tuple(dict.fromkeys(int(size) for size in chunk_sizes))
     if len(sizes) < 2:
-        raise ValueError("Chunk-size sensitivity requires at least two chunk sizes")
+        raise ValueError("Retrieval-unit-size analysis requires at least two sizes")
     if any(size <= 0 for size in sizes):
-        raise ValueError("Chunk sizes must be positive integers")
+        raise ValueError("Retrieval-unit sizes must be positive integers")
     unsupported = set(sizes).difference(config.chunking.supported_chunk_sizes)
     if unsupported:
         raise ValueError(
-            f"Unsupported chunk sizes {sorted(unsupported)}; expected a subset of "
+            f"Unsupported retrieval-unit sizes {sorted(unsupported)}; expected a subset of "
             f"{config.chunking.supported_chunk_sizes}"
         )
 
     metrics = tuple(config.evaluation.bootstrap_metrics)
-    output_dir = config.paths.analysis_dir / "chunk_size_sensitivity" / model.value
-    summary_path = output_dir / "summary_by_chunk_size.csv"
-    comparisons_path = output_dir / "comparisons_within_chunk_size.csv"
+    output_dir = config.paths.analysis_dir / "retrieval_unit_size" / model.value
+    summary_path = output_dir / "summary_by_retrieval_unit_size.csv"
+    comparisons_path = output_dir / "comparisons_within_retrieval_unit_size.csv"
     effects_path = output_dir / "query_scope_effects.csv"
-    interactions_path = output_dir / "scope_interactions_across_chunk_sizes.csv"
+    interactions_path = output_dir / "scope_interactions_across_retrieval_unit_sizes.csv"
     manifest_path = output_dir / "manifest.json"
     bootstrap_dir = output_dir / "bootstrap"
 
@@ -208,13 +209,13 @@ def analyse_chunk_size_sensitivity(
         size_ids = set(loaded[(size, DENSE_CONDITIONS[0])]["query_id"].astype(str))
         if size_ids != reference_ids:
             raise RuntimeError(
-                "Evaluated query sets differ across chunk sizes; sensitivity analysis "
+                "Evaluated query sets differ across retrieval-unit sizes; this analysis "
                 "requires identical questions at every size"
             )
 
     configuration = {
         "model": model.value,
-        "chunk_sizes": list(sizes),
+        "retrieval_unit_sizes": list(sizes),
         "conditions": [condition.value for condition in DENSE_CONDITIONS],
         "within_size_comparisons": [
             [first.value, second.value]
@@ -225,7 +226,7 @@ def analyse_chunk_size_sensitivity(
                 "name": name,
                 "first_condition": first.value,
                 "second_condition": second.value,
-                "effect": "second_minus_first",
+                "effect": "first_minus_second",
             }
             for name, first, second in SCOPE_EFFECTS
         ],
@@ -245,7 +246,7 @@ def analyse_chunk_size_sensitivity(
         existing = json.loads(manifest_path.read_text(encoding="utf-8"))
         if existing.get("configuration_fingerprint") != fingerprint:
             raise RuntimeError(
-                f"Cached sensitivity analysis at {output_dir} does not match current "
+                f"Cached retrieval-unit-size analysis at {output_dir} does not match current "
                 "inputs. Re-run with --overwrite."
             )
         return existing
@@ -277,7 +278,7 @@ def analyse_chunk_size_sensitivity(
                         "model_key": model.value,
                         "analysis_set": analysis_name,
                         "sample_scope": sample_scope,
-                        "chunk_size_tokens": size,
+                        "retrieval_unit_size_tokens": size,
                         "condition": condition.value,
                         "query_count": len(sample),
                         "document_count": sample["document_id"].nunique(),
@@ -333,7 +334,7 @@ def analyse_chunk_size_sensitivity(
                                 "model_key": model.value,
                                 "analysis_set": analysis_name,
                                 "sample_scope": sample_scope,
-                                "chunk_size_tokens": size,
+                                "retrieval_unit_size_tokens": size,
                                 "first_condition": first.value,
                                 "second_condition": second.value,
                                 "metric": metric,
@@ -341,7 +342,7 @@ def analyse_chunk_size_sensitivity(
                                 "document_count": sample["document_id"].nunique(),
                                 "first_mean": float(sample[f"first__{metric}"].mean()),
                                 "second_mean": float(sample[f"second__{metric}"].mean()),
-                                "mean_difference_second_minus_first": observed,
+                                "mean_difference_first_minus_second": observed,
                                 "confidence_lower": lower,
                                 "confidence_upper": upper,
                                 "bootstrap_p_value": p_value,
@@ -353,7 +354,7 @@ def analyse_chunk_size_sensitivity(
                         )
 
         # Build per-query scope effects at each size, then test whether those effects
-        # change across chunk sizes (the chunk-size-by-scope interaction).
+        # change across retrieval-unit sizes (the size-by-scope interaction).
         effects_by_key: dict[tuple[str, str], pd.DataFrame] = {}
         for effect_name, first, second in SCOPE_EFFECTS:
             for size in sizes:
@@ -375,11 +376,11 @@ def analyse_chunk_size_sensitivity(
                 effect_frame = merged[_METADATA_COLUMNS].copy()
                 effect_frame["model_key"] = model.value
                 effect_frame["analysis_group"] = analysis_name
-                effect_frame["chunk_size_tokens"] = size
+                effect_frame["retrieval_unit_size_tokens"] = size
                 effect_frame["effect_name"] = effect_name
                 for metric in metrics:
                     effect_frame[metric] = (
-                        merged[f"second__{metric}"] - merged[f"first__{metric}"]
+                        merged[f"first__{metric}"] - merged[f"second__{metric}"]
                     )
                 effect_rows.extend(effect_frame.to_dict(orient="records"))
                 effects_by_key[(effect_name, str(size))] = effect_frame
@@ -429,8 +430,8 @@ def analyse_chunk_size_sensitivity(
                             observed, lower, upper, p_value, samples = (
                                 paired_document_bootstrap(
                                     merged_effects,
-                                    first_column=f"first__{metric}",
-                                    second_column=f"second__{metric}",
+                                    first_column=f"second__{metric}",
+                                    second_column=f"first__{metric}",
                                     iterations=config.evaluation.bootstrap_iterations,
                                     confidence_level=config.evaluation.confidence_level,
                                     seed=config.project.seed + seed_offset,
@@ -455,8 +456,8 @@ def analyse_chunk_size_sensitivity(
                                     "analysis_set": analysis_name,
                                     "sample_scope": sample_scope,
                                     "effect_name": effect_name,
-                                    "first_chunk_size_tokens": first_size,
-                                    "second_chunk_size_tokens": second_size,
+                                    "first_retrieval_unit_size_tokens": first_size,
+                                    "second_retrieval_unit_size_tokens": second_size,
                                     "metric": metric,
                                     "query_count": len(merged_effects),
                                     "document_count": merged_effects[
@@ -486,14 +487,14 @@ def analyse_chunk_size_sensitivity(
     effects = pd.DataFrame(effect_rows)
     interactions = pd.DataFrame(interaction_rows)
     if summary.empty or comparisons.empty or effects.empty or interactions.empty:
-        raise RuntimeError("Chunk-size sensitivity analysis generated empty outputs")
+        raise RuntimeError("Retrieval-unit-size analysis generated empty outputs")
 
     comparisons["holm_adjusted_p_value"] = np.nan
     within_family = [
         "model_key",
         "analysis_set",
         "sample_scope",
-        "chunk_size_tokens",
+        "retrieval_unit_size_tokens",
         "metric",
     ]
     for _, indices in comparisons.groupby(within_family, dropna=False).groups.items():
@@ -528,7 +529,7 @@ def analyse_chunk_size_sensitivity(
             "model_key",
             "analysis_set",
             "sample_scope",
-            "chunk_size_tokens",
+            "retrieval_unit_size_tokens",
             "condition",
         ]
     ).to_csv(summary_path, index=False)
@@ -537,7 +538,7 @@ def analyse_chunk_size_sensitivity(
             "model_key",
             "analysis_set",
             "sample_scope",
-            "chunk_size_tokens",
+            "retrieval_unit_size_tokens",
             "metric",
             "first_condition",
             "second_condition",
@@ -548,7 +549,7 @@ def analyse_chunk_size_sensitivity(
             "model_key",
             "analysis_group",
             "effect_name",
-            "chunk_size_tokens",
+            "retrieval_unit_size_tokens",
             "document_id",
             "query_id",
         ]
@@ -560,16 +561,16 @@ def analyse_chunk_size_sensitivity(
             "sample_scope",
             "metric",
             "effect_name",
-            "first_chunk_size_tokens",
-            "second_chunk_size_tokens",
+            "first_retrieval_unit_size_tokens",
+            "second_retrieval_unit_size_tokens",
         ]
     ).to_csv(interactions_path, index=False)
 
     manifest = {
         "schema_version": 1,
-        "kind": "chunk_size_sensitivity_analysis",
+        "kind": "retrieval_unit_size_analysis",
         "model_key": model.value,
-        "chunk_sizes": list(sizes),
+        "retrieval_unit_sizes": list(sizes),
         "query_count": len(reference_ids),
         "summary_row_count": len(summary),
         "comparison_count": len(comparisons),
@@ -578,21 +579,21 @@ def analyse_chunk_size_sensitivity(
         "configuration": configuration,
         "configuration_fingerprint": fingerprint,
         "files": {
-            "summary_by_chunk_size": summary_path.name,
-            "comparisons_within_chunk_size": comparisons_path.name,
+            "summary_by_retrieval_unit_size": summary_path.name,
+            "comparisons_within_retrieval_unit_size": comparisons_path.name,
             "query_scope_effects": effects_path.name,
-            "scope_interactions_across_chunk_sizes": interactions_path.name,
+            "scope_interactions_across_retrieval_unit_sizes": interactions_path.name,
             "bootstrap_directory": bootstrap_dir.name,
         },
         "interpretation_notes": [
             "The all_questions scope includes every eligible question associated with "
             "the frozen selected-paper corpus.",
             "The split_test scope preserves the original held-out test subset.",
-            "Within-size differences are second condition minus first condition.",
-            "Chunk-size interactions test whether a scope difference changes between "
-            "two chunk sizes; positive values mean the named effect is larger at the "
-            "second chunk size.",
-            "Fixed-rank metrics change the amount of retrieved text as chunk size "
+            "Within-size differences are first condition minus second condition.",
+            "Retrieval-unit-size interactions test whether a scope difference changes between "
+            "two retrieval-unit sizes; positive values mean the named effect is larger at the "
+            "second retrieval-unit size.",
+            "Fixed-rank metrics change the amount of retrieved text as retrieval-unit size "
             "changes; token-budget metrics provide the fairer cross-size comparison.",
         ],
     }
@@ -604,5 +605,5 @@ __all__ = [
     "DENSE_CONDITIONS",
     "SCOPE_EFFECTS",
     "WITHIN_SIZE_COMPARISONS",
-    "analyse_chunk_size_sensitivity",
+    "analyse_retrieval_unit_size",
 ]

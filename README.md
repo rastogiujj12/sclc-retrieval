@@ -1,507 +1,357 @@
-# Section-Constrained Late Chunking Retrieval Experiment
+# Section-Constrained Late Chunking for Academic Retrieval
 
-Version **0.7.8** implements the experimental artefact for the dissertation:
+This repository contains the experimental software artefact for the MSc dissertation:
 
 > **Section-Constrained Late Chunking for Academic Retrieval: An Ablation Study**
 
-The project tests whether the amount of document context available during
-embedding formation should respect academic section boundaries.
+The study treats **contextual encoding scope** as an independent retrieval-design
+variable. It asks whether a target retrieval unit in a structured academic paper
+should be encoded using only its own text, its parent top-level section, or the
+complete prepared paper.
 
-## Experimental conditions
+## Study design
 
-| Condition | Retrieval units | Encoding scope |
+Five retrieval conditions are evaluated at canonical target retrieval-unit sizes
+of **128, 256, and 512 tokens**, with zero overlap.
+
+| Condition | Retrieval-unit construction | Context visible during encoding |
 |---|---|---|
-| `bm25` | Continuous fixed-token chunks | Lexical baseline |
-| `fixed_dense` | Continuous fixed-token chunks | Target chunk only |
-| `section_isolated` | Section-bounded chunks | Target chunk only |
-| `section_constrained` | Same section-bounded chunks | Parent top-level section |
-| `global` | Same section-bounded chunks | Complete paper |
+| `bm25` | Continuous fixed-size units | Not applicable (lexical baseline) |
+| `fixed_dense` | Continuous fixed-size units | Retrieval unit only |
+| `section_isolated` | Section-bounded units | Retrieval unit only |
+| `section_constrained` | Section-bounded units | Parent top-level section |
+| `global` | Section-bounded units | Complete prepared paper |
 
-The three contextual-scope conditions use identical target spans. Their only
-intended difference is whether the target representation is influenced by the
-chunk, its parent section, or the complete paper.
+The three section-bounded contextual conditions use the **same target text
+spans**. Their controlled difference is the amount of surrounding document text
+visible while the target representation is formed.
 
-## Why version 0.7.0 includes a chunk-size pilot
+All dense conditions use explicit target-token mean pooling, L2-normalised
+vectors, and exact dot-product ranking. The study does not use approximate
+nearest-neighbour search, reranking, query expansion, answer generation, or
+model fine-tuning.
 
-QASPER retrieval is restricted to the question's source paper. With 512-token
-chunks, many short papers contain ten or fewer candidates, making Recall@10
-saturated or nearly saturated. Version 0.7.0 therefore compares **128, 256, and
-512 token chunks** before the confirmatory contextual-scope experiment.
+## Dataset and frozen sample
 
-The pilot uses:
+The experiments use QASPER. The source collection contains **1,585 papers and
+5,049 questions**. After preparation and evidence alignment, **4,295 questions**
+have usable textual evidence.
 
-- BM25;
-- Granite fixed-size dense retrieval;
-- QASPER's **validation split only**;
-- fixed-rank metrics at 1, 3, 5, and 10;
-- fixed retrieved-token budgets of 512, 1,024, 2,048, and 4,096 tokens;
-- complete within-paper rankings;
-- document-level paired bootstrap confidence intervals.
+The frozen experimental sample contains **200 papers and 554 questions**:
 
-One common chunk size is then frozen for the remaining methods. The test split
-is not used for chunk-size selection.
+- **Cross-model core:** 150 papers / 425 questions, evaluated with Granite and Jina.
+- **Granite extension:** 50 longer papers / 129 questions, evaluated with Granite only.
 
-## Requirements
+The primary reported results use the original QASPER test portion contained in
+the frozen sample:
 
-- Python 3.11 or 3.12
-- A virtual environment is recommended
-- Internet access for the first Hugging Face download
-- A CUDA GPU is recommended for dense encoding, but CPU execution is supported
+- **Granite:** 55 papers / 180 questions.
+- **Jina:** 42 cross-model papers / 137 questions.
+- **Granite extension:** 13 papers / 43 questions.
 
-Install the package in editable mode:
+Retrieval is performed **within the question's associated paper**. The task is
+therefore retrieval-unit ranking within a known relevant document rather than
+collection-wide document discovery.
+
+The final query-type coding across the frozen 554-question sample is:
+
+- factual: 432;
+- section-specific: 66;
+- multi-hop: 21;
+- synthesis: 35.
+
+## Embedding models
+
+- `ibm-granite/granite-embedding-311m-multilingual-r2`
+  - configured maximum context: 32,768 tokens
+- `jinaai/jina-embeddings-v3-hf`
+  - configured maximum context: 8,192 tokens
+  - passage adapter: `retrieval_passage`
+  - query adapter: `retrieval_query`
+
+Granite tokenisation defines the canonical 128/256/512-token retrieval-unit
+boundaries. Jina reuses the resulting character spans so both embedding models
+rank the same underlying text.
+
+## Main findings reproduced by the artefact
+
+The dissertation's main result is asymmetric:
+
+- fixed-size dense retrieval is the strongest overall condition;
+- Section-Constrained Late Chunking does **not** consistently outperform
+  section-isolated encoding;
+- Section-Constrained Late Chunking achieves significantly higher nDCG@5 than
+  global late chunking at every retrieval-unit size for both embedding models
+  in the primary analysis.
+
+The software also supports the reported longer-paper, query-type, retrieval-unit-size,
+and exploratory cross-section analyses.
+
+## Installation
+
+Python **3.11 or 3.12** is supported.
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-Run the tests:
+Dense encoding is designed for CUDA GPUs. CPU execution is possible for smaller
+stages but is not practical for the long-context dense experiment.
+
+Run the regression suite with:
 
 ```bash
 pytest
 ```
 
-The included suite currently contains **46 tests**.
+The repository currently contains **46 regression tests**.
 
-## Configuration
+## Reproducing the primary experiment
 
-The default configuration is `configs/base.yaml`.
+The repository commits the **frozen document sample** and the final manual
+query-type labels. A reproduction therefore does not need to resample the
+collection before running the reported experiment.
 
-Important fixed controls include:
+### 1. Prepare the QASPER source documents
 
-```yaml
-chunking:
-  supported_chunk_sizes: [128, 256, 512]
-  overlap_tokens: 0
-  retain_short_final_chunk: true
-
-evaluation:
-  cutoffs: [1, 3, 5, 10]
-  token_budgets: [512, 1024, 2048, 4096]
-  primary_metric: ndcg_at_5
-  confirmatory_split: test
-
-pilot:
-  chunk_sizes: [128, 256, 512]
-  selection_split: validation
-  primary_metric: evidence_paragraph_recall_at_token_budget_1024
-  secondary_metric: complete_evidence_at_token_budget_2048
-  practical_equivalence_margin: 0.01
-```
-
-Before the final dissertation run, pin both embedding models and the canonical
-tokenizer to immutable Hugging Face commit revisions.
-
-## Data preparation already used by this project
-
-The deterministic dataset stages are:
+From a fresh clone, install the project and run:
 
 ```bash
-sclc prepare --config configs/base.yaml
-sclc profile --config configs/base.yaml
-sclc sample --config configs/base.yaml
+./scripts/prepare_primary_data.sh configs/base.yaml
 ```
 
-They produce reconstructed QASPER papers, complete-paper token profiles, and a
-reproducible paper-level sample.
+This reconstructs the prepared QASPER papers and removes reference sections. It
+leaves the committed dissertation sample untouched. The frozen sample manifest
+is:
 
-The selected corpus is designed as:
+```text
+data/subsets/selected_documents.csv
+```
 
-- 150 `cross_model_core` papers that fit Granite and Jina;
-- 50 `granite_extended` papers that fit Granite but exceed Jina's limit.
+To independently verify the deterministic sampling procedure, run:
 
-References are removed, complete papers are never windowed for global late
-chunking, and longer-than-Granite papers are excluded.
+```bash
+sclc profile --config configs/base.yaml
+sclc sample --config configs/base.yaml
+git diff -- data/subsets/selected_documents.csv
+```
 
-## Query-type coding
+A clean diff confirms that the regenerated selection matches the committed
+frozen sample.
 
-Query categories must be assigned before retrieval results are inspected. The
-single global coding file is:
+### 2. Query-type coding
+
+The final manually coded query labels are committed at:
 
 ```text
 data/retrieval_units/query_types.csv
 ```
 
-Allowed labels are:
+The corresponding detailed coding record is retained at
+`data/retrieval_units/query_type_coding_record.csv`, and the coding guide is in
+`docs/query_type_coding_guide.md`. The dissertation used
+single-researcher coding with predefined criteria; no independent second coder
+or inter-rater reliability estimate was used.
 
-```text
-factual
-section_specific
-multi_hop
-synthesis
-uncertain
-```
+### 3. Run the primary retrieval experiment
 
-The coding is independent of chunk size, so it is not duplicated under the
-128/256/512 namespaces.
-
-## Chunk-size pilot workflow
-
-### Option A: run the provided script
-
-After `query_types.csv` exists:
+Run one embedding model at a time so long-context stages can resume safely from
+validated document-level outputs:
 
 ```bash
-./scripts/run_chunk_size_pilot.sh configs/base.yaml
+./scripts/run_primary_experiment.sh configs/base.yaml granite
+./scripts/run_primary_experiment.sh configs/base.yaml jina
 ```
 
-The script constructs and evaluates all three chunk sizes for BM25 and Granite
-fixed dense retrieval, then runs validation-only selection.
+The runner checks the required frozen inputs before starting. It evaluates all
+five conditions at 128, 256, and 512 tokens, runs the paired condition
+comparisons at each size, and performs the retrieval-unit-size interaction
+analysis.
 
-### Option B: run each stage manually
-
-For each size:
+The equivalent individual commands are available through:
 
 ```bash
-sclc chunk --chunk-size 128 --config configs/base.yaml
-sclc encode --condition bm25 --chunk-size 128 --config configs/base.yaml
-sclc retrieve --condition bm25 --chunk-size 128 --config configs/base.yaml
-sclc evaluate --condition bm25 --chunk-size 128 --config configs/base.yaml
+sclc --help
 ```
 
-Repeat with `--chunk-size 256` and `--chunk-size 512`.
-
-Then run Granite fixed dense retrieval for each size:
+For example, retrieval units for one size can be constructed with:
 
 ```bash
-sclc encode \
-  --condition fixed_dense \
-  --model granite \
-  --chunk-size 128 \
-  --config configs/base.yaml
-
-sclc retrieve \
-  --condition fixed_dense \
-  --model granite \
-  --chunk-size 128 \
-  --config configs/base.yaml
-
-sclc evaluate \
-  --condition fixed_dense \
-  --model granite \
-  --chunk-size 128 \
+sclc build-units \
+  --retrieval-unit-size 256 \
   --config configs/base.yaml
 ```
 
-Again repeat for 256 and 512.
+### 4. Retrieval-unit-size analysis
 
-Finally select the common chunk size:
-
-```bash
-sclc select-chunk-size --config configs/base.yaml
-```
-
-The selection result is written to:
-
-```text
-outputs/analysis/chunk_size_pilot/selection.json
-```
-
-### Selection rule
-
-The method is deliberately fixed before viewing the pilot results:
-
-1. Use Granite fixed-dense results on the validation split.
-2. Find the best mean evidence-paragraph recall under a 1,024-token retrieval
-   budget.
-3. Retain sizes within 0.01 of that best mean.
-4. Among them, retain sizes within 0.01 of the best complete-evidence recovery
-   under a 2,048-token budget.
-5. If more than one size remains, choose the largest for storage and computation
-   efficiency.
-
-BM25 and the additional ranking metrics are reported as robustness evidence but
-do not override the predeclared Granite selection rule.
-
-## Full dense chunk-size sensitivity
-
-After the 128-token primary run, version 0.7.8 can evaluate all four dense
-conditions at 128, 256, and 512 tokens for every eligible question associated
-with the frozen selected-paper corpus. Run one model at a time:
+After the required dense evaluations exist, the analysis can be rerun independently:
 
 ```bash
-./scripts/run_chunk_size_sensitivity.sh configs/base.yaml granite
-./scripts/run_chunk_size_sensitivity.sh configs/base.yaml jina
-```
-
-The script reuses compatible cached results, so an existing 128-token run is not
-recomputed. It finishes by running:
-
-```bash
-sclc chunk-size-sensitivity \
+sclc retrieval-unit-size \
   --model granite \
-  --chunk-sizes 128,256,512 \
+  --retrieval-unit-sizes 128,256,512 \
   --config configs/base.yaml \
   --overwrite
 ```
 
-The analysis reports all eligible selected-paper questions and the original test
-subset separately. It also directly tests whether the
-section-constrained-minus-global effect changes with chunk size. Results are
-written to:
+Repeat with `--model jina` for the cross-model sample. See
+`docs/retrieval_unit_size_analysis.md` for the output definitions.
 
-```text
-outputs/analysis/chunk_size_sensitivity/<model>/
-```
+## Pairwise statistical comparisons
 
-See `docs/chunk_size_sensitivity.md` for output definitions and interpretation
-rules. Fixed-token-budget metrics should be prioritised for cross-size
-comparisons because fixed-rank cutoffs retrieve more text as chunks become
-larger.
+The primary comparison family contains four condition pairs. Signed differences
+follow **first condition minus second condition**; positive values favour the
+first named condition and negative values favour the second.
 
+The reported dense directions are:
 
-## Evidence-structure analysis
+- section-isolated minus fixed-size dense;
+- section-constrained minus section-isolated;
+- global minus section-constrained.
 
-The natural QASPER distribution contains many factual questions and relatively
-few manually coded multi-hop questions. The secondary evidence-structure
-analysis does not rebalance, oversample, or relabel the held-out test set. It
-instead groups each query by the location of its acceptable gold evidence:
+Statistical uncertainty is estimated with **10,000 paired document-level
+bootstrap resamples**. Holm correction is applied within the predefined family
+for each model, analysis set, question group, retrieval-unit size, and metric.
 
-- `single_paragraph`;
-- `multi_paragraph_same_section`;
-- `multi_paragraph_cross_section`.
+## Evaluation metrics
 
-QASPER may contain multiple alternative acceptable evidence sets. The primary
-label uses the complete acceptable set with the fewest distinct paragraphs. If
-several minimal sets are tied, the least-distributed structure is used because
-complete-support evaluation succeeds when any acceptable set is recovered; the
-tie and all alternative structures remain recorded for audit. Consequently, a
-query is labelled cross-section only when the minimal complete support route
-still crosses top-level academic sections.
+The six principal dissertation metrics are:
 
-After the selected-size evaluations exist, run Granite independently:
+- nDCG@5;
+- Recall@5;
+- evidence-paragraph recall@5 (ER@5);
+- complete evidence recovery@5 (CE@5);
+- evidence-paragraph recall within 1,024 retrieved tokens;
+- complete evidence recovery within 2,048 retrieved tokens.
+
+QASPER may provide multiple acceptable evidence sets for one question. Complete
+evidence recovery succeeds when every paragraph in **any one complete acceptable
+set** has been recovered.
+
+The evaluator also retains additional diagnostic metrics used to validate the
+pipeline. Complete rankings are stored so fixed-rank and token-budget measures
+can be calculated without repeating retrieval.
+
+## Cross-section challenge
+
+A separate exploratory audit identifies questions whose complete acceptable
+evidence necessarily spans more than one top-level section. The dissertation
+release commits the completed manual review and the accepted challenge document
+manifest, so the reported challenge can be rerun directly after QASPER
+preparation.
+
+To regenerate the original audit/review inputs from the complete prepared
+collection, use:
 
 ```bash
-sclc evidence-structure \
-  --model granite \
-  --chunk-size 128 \
-  --config configs/base.yaml
+sclc qasper-audit --config configs/base.yaml
+sclc qasper-challenge --config configs/base.yaml --overwrite
 ```
 
-The command requires no re-encoding, retrieval, or evaluation. It writes to:
+The complete audit identified **302 strict candidates across 253 papers**. The
+original QASPER test split contained 53 strict candidates, which were manually
+reviewed. The final review accepted **23 questions across 20 papers**:
+
+- 18 questions from 15 cross-model papers;
+- 5 questions from 5 Granite-extension papers.
+
+The completed review decisions are committed at:
 
 ```text
-outputs/analysis/chunk_128/evidence_structure/granite/
+data/subsets_cross_section_challenge/review_decisions.csv
 ```
 
-Important outputs are:
+The dissertation reports the 18 accepted cross-model questions with Jina at all
+three retrieval-unit sizes. Reproduce that reported challenge with:
 
-```text
-evidence_structure_queries.csv
-evidence_structure_counts.csv
-evidence_structure_query_type_crosstab.csv
-summary_by_evidence_structure.csv
-scope_comparisons_by_evidence_structure.csv
-manifest.json
+```bash
+./scripts/run_cross_section_challenge.sh \
+  configs/cross_section_challenge.yaml \
+  jina
 ```
 
-The inferential analysis is deliberately limited to the three conditions with
-identical section-bounded target spans: section-isolated,
-section-constrained, and global. Document-level paired bootstrap intervals and
-Holm correction are calculated separately within each evidence structure. Rows
-with fewer than 20 queries or 10 papers are explicitly flagged as low-sample
-secondary findings. Evidence distribution should not be described as proof of
-reasoning depth: multiple paragraphs can be redundant or alternative rather
-than genuinely multi-hop.
+The complete audit, review, and challenge workflow is documented in
+`docs/cross_section_challenge.md`.
 
+## Reproducibility controls
 
-## Metrics
+The pipeline records and validates configuration fingerprints and source
+manifests before reusing generated outputs. Important controls include:
 
-### Fixed-rank metrics
+- project seed 42;
+- deterministic document-level sampling;
+- canonical target sizes of 128/256/512 tokens with zero overlap;
+- identical section-bounded target spans across the three contextual conditions;
+- no silent truncation or sliding-window approximation for global late chunking;
+- shared query representations within each embedding model;
+- explicit target-token mean pooling for all dense conditions;
+- exact ranking rather than approximate nearest-neighbour search;
+- deterministic ranking tie-breaking;
+- document-level paired bootstrap resampling;
+- restart-safe document-level dense-encoding outputs.
 
-At `k = 1, 3, 5, 10`, the evaluator reports:
+Generated encodings, rankings, evaluation files, bootstrap arrays, and model
+caches are intentionally excluded from Git. They can be reconstructed from the
+frozen inputs and configuration.
 
-- nDCG@k;
-- Recall@k;
-- available-depth Precision@k, whose denominator is the number returned when a
-  paper has fewer than k candidates;
-- strict Precision@k, whose denominator is always k;
-- unique evidence-paragraph recall;
-- non-whitespace evidence-span coverage;
-- recovery of at least one complete acceptable QASPER evidence set;
-- stricter recovery of the complete evidence union;
-- best-acceptable-set sensitivity scores.
+### Software, GPU, and model snapshot
 
-### Complete-ranking metrics
+For an archival release, capture the local experiment environment with:
 
-Because candidate ranking is restricted to one source paper, complete rankings
-are stored and used to calculate:
+```bash
+python scripts/capture_environment.py \
+  --config configs/base.yaml \
+  --output reproducibility/environment.json
+```
 
-- Mean Average Precision at query level (`average_precision`);
-- reciprocal rank;
-- R-Precision;
-- full-ranking nDCG;
-- first relevant rank;
-- normalised first relevant rank;
-- first relevant rank percentile.
+The script records Python/package versions, CUDA and GPU information, the Git
+commit, configured model identifiers, cached Hugging Face commit references when
+they are recoverable from the local cache, the configured QASPER source URLs,
+and SHA-256 hashes of the frozen dissertation inputs. See
+`reproducibility/README.md`.
 
-### Fixed-token-budget metrics
+The exact model commit identifiers used by the completed dissertation runs were
+not stored in the archived source tree, so this repository does not invent them
+after the fact. If the original Hugging Face cache is available, the capture
+script can recover the cached `main` revisions for the archival release.
 
-For 512, 1,024, 2,048, and 4,096 retrieved tokens, the evaluator reports:
-
-- evidence-paragraph recall;
-- evidence-span coverage;
-- complete acceptable evidence-set recovery;
-- complete-union recovery;
-- number of chunks and actual tokens retrieved.
-
-These metrics make 128-, 256-, and 512-token retrieval more comparable than a
-fixed number of chunks alone.
-
-### Saturation diagnostics
-
-Each query records:
-
-- candidate count;
-- whether each rank cutoff retrieves the complete candidate set;
-- retrieved fraction at each cutoff.
-
-Recall@10 can therefore be reported separately for saturated and unsaturated
-queries rather than interpreted as equally informative everywhere.
-
-## Output namespaces
-
-Chunk-dependent artefacts cannot overwrite another chunk-size run:
+## Repository structure
 
 ```text
-data/retrieval_units/
-├── query_types.csv
-├── query_type_coding.csv
-├── chunk_128/
-├── chunk_256/
-└── chunk_512/
+configs/
+  base.yaml                         Primary experiment configuration
+  cross_section_challenge.yaml      Cross-section challenge configuration
 
+data/
+  subsets/                          Frozen 200-paper sample
+  subsets_cross_section_challenge/  Manual review and challenge sample
+  retrieval_units/                  Final query-type coding artefacts
+
+docs/                               Method and audit documentation
+examples/                           Small input templates
+reproducibility/                    Environment-capture guidance and snapshot
+scripts/                            End-to-end and provenance utilities
+src/sclc/                           Experiment implementation
+tests/                              Regression tests
+```
+
+Generated outputs remain separated by retrieval-unit size on disk so runs at
+different sizes cannot overwrite one another:
+
+```text
 outputs/
-├── encodings/
-│   ├── queries/                  # shared query embeddings
-│   ├── chunk_128/
-│   ├── chunk_256/
-│   └── chunk_512/
-├── rankings/
-│   ├── chunk_128/
-│   ├── chunk_256/
-│   └── chunk_512/
-├── evaluation/
-│   ├── chunk_128/
-│   ├── chunk_256/
-│   └── chunk_512/
-└── analysis/
-    ├── chunk_size_pilot/
-    └── chunk_<selected_size>/
+  encodings/chunk_128/ ... chunk_512/
+  rankings/chunk_128/  ... chunk_512/
+  evaluation/chunk_128/ ... chunk_512/
+  analysis/retrieval_unit_size/<model>/
 ```
 
-Every stage uses fingerprints and refuses incompatible cached artefacts unless
-`--overwrite` is supplied.
-
-## After selecting a chunk size
-
-Suppose `selection.json` chooses 256. Encode the remaining Granite conditions:
-
-```bash
-for condition in section_isolated section_constrained global; do
-  sclc encode \
-    --condition "$condition" \
-    --model granite \
-    --chunk-size 256 \
-    --config configs/base.yaml
-done
-```
-
-The fixed-dense Granite encoding from the pilot is reused.
-
-Then encode the Jina conditions on the cross-model core:
-
-```bash
-for condition in fixed_dense section_isolated section_constrained global; do
-  sclc encode \
-    --condition "$condition" \
-    --model jina \
-    --chunk-size 256 \
-    --config configs/base.yaml
-done
-```
-
-Run retrieval and evaluation for the selected size with:
-
-```bash
-./scripts/run_retrieval_evaluation.sh configs/base.yaml 256
-```
-
-If the second argument is omitted, the script reads the selected size from
-`outputs/analysis/chunk_size_pilot/selection.json`.
-
-Confirmatory pairwise comparisons and the section-constrained-minus-global
-structural analysis use only the configured test split:
-
-```bash
-# Run the current Granite confirmatory analysis without requiring Jina first.
-sclc compare --model granite --chunk-size 128 --config configs/base.yaml
-sclc analyse --model granite --chunk-size 128 --config configs/base.yaml
-
-# After every Jina condition has also been evaluated, omit --model to analyse both.
-sclc compare --chunk-size 128 --config configs/base.yaml
-sclc analyse --chunk-size 128 --config configs/base.yaml
-```
-
-## Dense encoding behavior
-
-- `fixed_dense` encodes continuous chunks independently.
-- `section_isolated` encodes section-bounded target chunks independently.
-- `section_constrained` encodes each parent section once and mean-pools the
-  target token spans after contextualisation.
-- `global` encodes each complete paper once and mean-pools the same target spans.
-- No complete paper is truncated, split, or windowed for global late chunking.
-- Vectors are L2-normalised and cached per paper.
-- Query embeddings are shared across chunk sizes and conditions for each model.
-
-If GPU memory is insufficient, reduce:
-
-```yaml
-dense:
-  batch_size: 2
-```
-
-Contextual conditions process one paper or section at a time, so their memory
-requirements are governed mainly by the contextual scope rather than the number
-of target chunks pooled from it.
-
-## Evidence policy
-
-The primary relevance set is the union of distinct QASPER evidence paragraphs
-across all acceptable annotations. Complete-support success occurs when all
-paragraphs from at least one acceptable evidence set are retrieved.
-
-Metrics prefixed with `best_` report the most favourable acceptable evidence set
-as sensitivity analysis. Metrics prefixed with `union_complete_` apply the
-stricter requirement that every paragraph in the evidence union is recovered.
-
-Only non-whitespace character overlap counts toward relevance and evidence-span
-coverage.
-
-## Reproducibility and safeguards
-
-- document IDs are always read as strings;
-- random sampling and bootstrap seeds come from the YAML configuration;
-- retrieval ties use deterministic retrieval-unit IDs;
-- all chunk-dependent caches include chunk size and input fingerprints;
-- query categories are required before retrieval;
-- validation is used for chunk-size selection;
-- test is reserved for confirmatory comparisons;
-- invalid condition/model combinations and unsupported chunk sizes are rejected.
-
-## Migration from v0.6.0
-
-You do not need to rerun `prepare`, `profile`, or `sample` when upgrading.
-
-Keep the completed file:
-
-```text
-data/retrieval_units/query_types.csv
-```
-
-Then construct the new namespaced chunk artefacts for 128, 256, and 512. Old
-unscoped BM25 rankings and evaluations may be retained as an archive, but v0.7.0
-does not treat them as pilot inputs because they lack chunk-size namespaces and
-the expanded metrics.
+The `chunk_<size>` directory name is an internal storage namespace; in the
+dissertation and public documentation these values are referred to as
+**retrieval-unit sizes**.
 
 ## Development checks
 
@@ -509,72 +359,24 @@ the expanded metrics.
 pytest
 ruff check .
 mypy src
+python scripts/check_release.py
 ```
 
-The packaged project was validated with `pytest` and Python bytecode compilation.
-Ruff and mypy require the optional development dependencies and should be run in
-the local development environment before the final experiment.
+`check_release.py` verifies the frozen sample/query-type/challenge counts, key
+experiment settings, release-version consistency, and absence of the removed
+pilot/version-history terminology.
 
-### Long-context GPU memory
+## Third-party data and models
 
-The Granite R2 encoder is based on ModernBERT and supports long inputs, but the
-manual/eager attention implementation can materialise a quadratic attention matrix.
-The default configuration therefore fixes `dense.attn_implementation: sdpa`, which
-uses PyTorch scaled-dot-product attention and substantially reduces peak memory.
-The model also supports `flash_attention_2` when the optional Flash Attention package
-is installed.
+The MIT licence in this repository applies to the original source code in this
+project. QASPER and the external embedding models are separate third-party
+resources and remain subject to their own licences and terms. Model weights and
+QASPER source data are not redistributed by this repository.
 
-A CUDA OOM during `section_constrained` or `global` is not normally fixed by lowering
-`dense.batch_size`: each section or complete document is already encoded one at a
-time. If SDPA still exceeds the available VRAM, run the contextual condition on a
-larger GPU. Do not truncate or window complete documents, because that changes the
-global contextual-scope condition.
+## Citation
 
-### FlexAttention on memory-constrained GPUs
+Citation metadata for the software artefact is provided in `CITATION.cff`.
 
-Transformers can route ModernBERT attention through PyTorch FlexAttention by setting:
-
-```yaml
-dense:
-  device: cuda
-  dtype: float16
-  attn_implementation: flex_attention
-```
-
-This is useful when SDPA falls back to a quadratic attention allocation for a long
-ModernBERT scope. FlexAttention remains an exact attention implementation and does
-not truncate or window the input. The first forward pass may spend additional time
-compiling kernels. Use the same backend and dtype for all dense conditions in the
-final controlled experiment.
-
-Changing `dense.attn_implementation` changes the dense-cache fingerprint. Rebuild all
-dense conditions and shared query embeddings with `--overwrite` so every condition
-uses the same backend. BM25 outputs are unaffected.
-
-## Audit the complete QASPER collection
-
-After preparing and profiling the corpus, inspect all usable QASPER questions for
-cross-section evidence requirements:
-
-```bash
-sclc qasper-audit --config configs/base.yaml
-```
-
-This produces a read-only collection audit under
-`outputs/analysis/qasper_collection_audit/`. It does not modify the selected
-sample or run retrieval. See `docs/qasper_collection_audit.md` for the strict
-candidate definition and split safeguards.
-
-## Freeze the strict cross-section challenge
-
-After `sclc qasper-audit`, freeze the supplementary test-only challenge and
-create a blinded review sheet:
-
-```bash
-sclc qasper-challenge --config configs/base.yaml --overwrite
-```
-
-This leaves the primary sample unchanged and writes deterministic challenge
-manifests under `outputs/analysis/qasper_cross_section_challenge/`. Complete the
-blinded review before running any new challenge retrieval. See
-`docs/qasper_cross_section_challenge.md`.
+**Ujjwal Rastogi**  
+MSc in Computing in Big Data Analytics and Artificial Intelligence  
+Atlantic Technological University, 2026
