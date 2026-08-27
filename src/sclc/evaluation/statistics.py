@@ -4,7 +4,7 @@ import hashlib
 import json
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -12,7 +12,6 @@ import pandas as pd
 from sclc.config import AppConfig
 from sclc.options import EmbeddingModel, RetrievalCondition
 from sclc.paths import evaluation_dir
-
 
 COMPARISONS: tuple[tuple[RetrievalCondition, RetrievalCondition], ...] = (
     # Every signed comparison follows first condition minus second condition.
@@ -220,7 +219,9 @@ def compare_conditions(
     }
     fingerprint = _fingerprint(configuration)
     if output_path.exists() and manifest_path.exists() and not overwrite:
-        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        existing = cast(
+            dict[str, Any], json.loads(manifest_path.read_text(encoding="utf-8"))
+        )
         if existing.get("configuration_fingerprint") != fingerprint:
             raise RuntimeError(
                 f"Cached comparisons at {output_path} do not match current inputs. "

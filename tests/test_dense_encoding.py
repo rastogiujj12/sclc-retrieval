@@ -267,7 +267,8 @@ def test_query_cache_rejects_changed_questions(tmp_path: Path) -> None:
     config = make_config(tmp_path)
     write_inputs(config)
     runtime = FakeRuntime()
-    factory = lambda _config, _model: runtime
+    def factory(_config, _model):
+        return runtime
 
     build_dense_encoding(
         config,
@@ -303,7 +304,8 @@ def test_passage_cache_rejects_changed_global_context(tmp_path: Path) -> None:
     config = make_config(tmp_path)
     write_inputs(config)
     runtime = FakeRuntime()
-    factory = lambda _config, _model: runtime
+    def factory(_config, _model):
+        return runtime
 
     build_dense_encoding(
         config,

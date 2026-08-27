@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class RetrievalCondition(str, Enum):
+class RetrievalCondition(StrEnum):
     """The five retrieval conditions used by the experiment."""
 
     BM25 = "bm25"
@@ -17,7 +17,7 @@ class RetrievalCondition(str, Enum):
         return self is not RetrievalCondition.BM25
 
 
-class EmbeddingModel(str, Enum):
+class EmbeddingModel(StrEnum):
     """Embedding models configured for the experiment."""
 
     GRANITE = "granite"

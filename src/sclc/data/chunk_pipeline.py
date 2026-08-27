@@ -10,7 +10,6 @@ from tqdm import tqdm
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
 from sclc.config import AppConfig
-from sclc.paths import global_query_coding_path, retrieval_unit_dir
 from sclc.data.chunking import (
     ChunkingStats,
     build_continuous_units,
@@ -34,6 +33,7 @@ from sclc.data.schema import (
     RetrievalUnitRecord,
     TopLevelSectionRecord,
 )
+from sclc.paths import global_query_coding_path, retrieval_unit_dir
 
 console = Console()
 

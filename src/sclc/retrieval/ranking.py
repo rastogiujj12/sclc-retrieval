@@ -6,7 +6,7 @@ import json
 import math
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -22,7 +22,7 @@ from sclc.paths import encoding_dir, ranking_dir, retrieval_unit_dir
 def _read_json(path: Path) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"{path} does not exist. Run the preceding pipeline stage first.")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
 def _fingerprint(payload: dict[str, Any]) -> str:
@@ -98,7 +98,7 @@ def _load_queries(
 ) -> list[PreparedQueryRecord]:
     path = retrieval_unit_dir(config, chunk_size) / "queries.jsonl"
     if not path.exists():
-        raise FileNotFoundError(f"{path} does not exist. Run `sclc chunk` first.")
+        raise FileNotFoundError(f"{path} does not exist. Run `sclc build-units` first.")
     return list(read_prepared_queries(path))
 
 
@@ -115,7 +115,7 @@ def _units_for_condition(
     )
     path = retrieval_unit_dir(config, chunk_size) / filename
     if not path.exists():
-        raise FileNotFoundError(f"{path} does not exist. Run `sclc chunk` first.")
+        raise FileNotFoundError(f"{path} does not exist. Run `sclc build-units` first.")
     return list(read_retrieval_units(path))
 
 
@@ -453,7 +453,7 @@ def rank_condition(
         raise RuntimeError(f"No ranking was produced for queries: {missing_queries[:10]}")
 
     if config.ranking.store_complete_ranking:
-        candidate_counts = {}
+        candidate_counts: dict[str, int] = {}
         for unit in units:
             candidate_counts[unit.document_id] = candidate_counts.get(unit.document_id, 0) + 1
         expected_results = sum(candidate_counts[query.document_id] for query in queries)
@@ -480,7 +480,7 @@ def rank_condition(
         "store_complete_ranking": config.ranking.store_complete_ranking,
         "configuration": configuration,
         "configuration_fingerprint": fingerprint,
-        "source_encoding_manifest": str((source_dir / "manifest.json")),
+        "source_encoding_manifest": str(source_dir / "manifest.json"),
         "query_encoding_fingerprint": (
             query_encoding_fingerprint
         ),

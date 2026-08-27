@@ -3,13 +3,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from sclc.analysis.cross_section_challenge_analysis import (
-    analyse_cross_section_challenge,
-)
+from sclc.analysis.cross_section_challenge_analysis import analyse_cross_section_challenge
 from sclc.config import AppConfig
 from sclc.options import EmbeddingModel, RetrievalCondition
 from sclc.paths import evaluation_dir
-
 
 METRICS = [
     "ndcg_at_5",

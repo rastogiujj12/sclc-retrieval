@@ -8,7 +8,7 @@ class CharacterSpan(BaseModel):
     end: int
 
     @model_validator(mode="after")
-    def validate_span(self) -> "CharacterSpan":
+    def validate_span(self) -> CharacterSpan:
         if self.start < 0:
             raise ValueError("Span start cannot be negative")
         if self.end < self.start:
@@ -155,7 +155,7 @@ class RankingRecord(BaseModel):
     overlapping_paragraph_ids: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_ranking(self) -> "RankingRecord":
+    def validate_ranking(self) -> RankingRecord:
         if self.rank <= 0:
             raise ValueError("Ranking rank must be positive")
         if self.character_end < self.character_start:

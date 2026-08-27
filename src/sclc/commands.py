@@ -5,13 +5,13 @@ from pathlib import Path
 from rich.console import Console
 from tqdm import tqdm
 
-from sclc.analysis.retrieval_unit_size import analyse_retrieval_unit_size
 from sclc.analysis.cross_section_challenge import (
     finalize_cross_section_challenge,
     freeze_cross_section_challenge,
 )
 from sclc.analysis.cross_section_challenge_analysis import analyse_cross_section_challenge
 from sclc.analysis.qasper_collection import audit_qasper_collection
+from sclc.analysis.retrieval_unit_size import analyse_retrieval_unit_size
 from sclc.config import ensure_output_directories, load_config
 from sclc.data.chunk_pipeline import construct_retrieval_units
 from sclc.data.io import (
@@ -111,9 +111,7 @@ def build_units_command(
     console.print(f"Section-bounded units: {counts['section_bounded_units']}")
     console.print(f"Usable queries: {counts['usable_queries']}")
     console.print(f"Validation: {validation['status']}")
-    console.print(
-        f"Outputs: {retrieval_unit_dir(config, resolved_retrieval_unit_size)}"
-    )
+    console.print(f"Outputs: {retrieval_unit_dir(config, resolved_retrieval_unit_size)}")
 
 
 def encode_command(
@@ -138,8 +136,8 @@ def encode_command(
         )
         if model_config.revision is None:
             console.print(
-                "[yellow]Warning: the model revision is not pinned. For a fresh "
-                "archival rerun, set an immutable Hugging Face commit hash.[/yellow]"
+                "[yellow]Warning: the model revision is not pinned. Set an immutable "
+                "Hugging Face commit hash before the final dissertation run.[/yellow]"
             )
 
     try:
@@ -201,11 +199,16 @@ def retrieve_command(
     )
     console.print(f"Queries: {result['query_count']}")
     console.print(f"Ranked results: {result['result_count']}")
-    output_path = (
-        ranking_dir(config, resolved_retrieval_unit_size) / condition.value
-        if condition is RetrievalCondition.BM25
-        else ranking_dir(config, resolved_retrieval_unit_size) / condition.value / model.value
-    )
+    if condition is RetrievalCondition.BM25:
+        output_path = ranking_dir(config, resolved_retrieval_unit_size) / condition.value
+    else:
+        if model is None:
+            raise ValueError(f"--model is required for {condition.value}")
+        output_path = (
+            ranking_dir(config, resolved_retrieval_unit_size)
+            / condition.value
+            / model.value
+        )
     console.print(f"Outputs: {output_path}")
 
 
@@ -236,11 +239,16 @@ def evaluate_command(
     console.print(f"Queries: {result['query_count']}")
     console.print(f"Documents: {result['document_count']}")
     console.print(f"Classified queries: {result['classified_query_count']}")
-    output_path = (
-        evaluation_dir(config, resolved_retrieval_unit_size) / condition.value
-        if condition is RetrievalCondition.BM25
-        else evaluation_dir(config, resolved_retrieval_unit_size) / condition.value / model.value
-    )
+    if condition is RetrievalCondition.BM25:
+        output_path = evaluation_dir(config, resolved_retrieval_unit_size) / condition.value
+    else:
+        if model is None:
+            raise ValueError(f"--model is required for {condition.value}")
+        output_path = (
+            evaluation_dir(config, resolved_retrieval_unit_size)
+            / condition.value
+            / model.value
+        )
     console.print(f"Outputs: {output_path}")
 
 
@@ -288,6 +296,7 @@ def qasper_challenge_command(config_path: Path, *, overwrite: bool) -> None:
     )
 
 
+
 def qasper_challenge_finalize_command(
     config_path: Path, *, decisions_path: Path, overwrite: bool
 ) -> None:
@@ -323,9 +332,8 @@ def challenge_analyse_command(
     )
     console.print("[green]Cross-section challenge analysis complete.[/green]")
     console.print(f"Model: {model.value}")
-    console.print(f"Retrieval-unit sizes: {result['retrieval_unit_sizes']}")
+    console.print(f"Retrieval-unit sizes: {result['chunk_sizes']}")
     console.print(f"Comparisons: {result['comparison_count']}")
-
 
 def qasper_audit_command(config_path: Path, *, overwrite: bool) -> None:
     config = load_config(config_path)
@@ -364,7 +372,7 @@ def retrieval_unit_size_command(
     )
     console.print("[green]Retrieval-unit-size analysis complete.[/green]")
     console.print(f"Model: {model.value}")
-    console.print(f"Retrieval-unit sizes: {result['retrieval_unit_sizes']}")
+    console.print(f"Chunk sizes: {result['chunk_sizes']}")
     console.print(f"Queries: {result['query_count']}")
     console.print(
         f"Outputs: {config.paths.analysis_dir / 'retrieval_unit_size' / model.value}"

@@ -6,7 +6,7 @@ from collections import defaultdict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
 
 import numpy as np
 import torch
@@ -132,8 +132,8 @@ def _resolve_dtype(requested: str, device: torch.device) -> torch.dtype:
 def _last_hidden_state(output: Any) -> torch.Tensor:
     hidden = getattr(output, "last_hidden_state", None)
     if hidden is not None:
-        return hidden
-    return output[0]
+        return cast(torch.Tensor, hidden)
+    return cast(torch.Tensor, output[0])
 
 
 def _content_mask(
@@ -404,14 +404,14 @@ def _write_npz(path: Path, **arrays: np.ndarray) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     with temporary.open("wb") as handle:
-        np.savez_compressed(handle, **arrays)
+        np.savez_compressed(handle, **cast(Any, arrays))
     temporary.replace(path)
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
 def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:

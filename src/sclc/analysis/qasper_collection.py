@@ -4,7 +4,7 @@ import hashlib
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -17,7 +17,6 @@ from sclc.data.chunking import build_top_level_sections
 from sclc.data.io import read_documents_jsonl
 from sclc.data.relevance import prepare_queries
 from sclc.data.schema import DocumentRecord, PreparedQueryRecord
-
 
 AUDIT_DIRNAME = "qasper_collection_audit"
 
@@ -351,7 +350,9 @@ def audit_qasper_collection(
     }
     fingerprint = _fingerprint(configuration)
     if manifest_path.exists() and not overwrite:
-        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        existing = cast(
+            dict[str, Any], json.loads(manifest_path.read_text(encoding="utf-8"))
+        )
         if existing.get("configuration_fingerprint") != fingerprint:
             raise RuntimeError(
                 f"Cached QASPER audit at {output_dir} does not match current "

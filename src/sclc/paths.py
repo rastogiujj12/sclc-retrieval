@@ -17,8 +17,7 @@ def resolve_retrieval_unit_size(config: AppConfig, retrieval_unit_size: int | No
     supported = set(config.chunking.supported_chunk_sizes)
     if supported and resolved not in supported:
         raise ValueError(
-            f"Unsupported retrieval-unit size {resolved}; "
-            f"expected one of {sorted(supported)}"
+            f"Unsupported retrieval-unit size {resolved}; expected one of {sorted(supported)}"
         )
     return resolved
 

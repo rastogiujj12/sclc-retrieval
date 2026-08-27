@@ -47,9 +47,8 @@ document:
   - reference
 chunking:
   canonical_tokenizer: ibm-granite/granite-embedding-311m-multilingual-r2
-  canonical_tokenizer_revision: null  # Pin an immutable HF commit for a fresh archival rerun.
   tokenizer_trust_remote_code: false
-  chunk_size_tokens: 512  # Default for single-size commands; primary scripts run all supported sizes.
+  chunk_size_tokens: 512
   supported_chunk_sizes:
   - 128
   - 256
@@ -59,12 +58,10 @@ chunking:
 models:
   granite:
     model_id: ibm-granite/granite-embedding-311m-multilingual-r2
-    revision: null  # Set to an immutable HF commit for a fresh archival rerun.
     tokenizer_trust_remote_code: false
     max_document_tokens: 32768
   jina:
     model_id: jinaai/jina-embeddings-v3-hf
-    revision: null  # Set to an immutable HF commit for a fresh archival rerun.
     tokenizer_trust_remote_code: false
     model_trust_remote_code: false
     max_document_tokens: 8192

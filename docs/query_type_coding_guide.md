@@ -1,6 +1,6 @@
 # Query-Type Coding Guide
 
-Code every retained QASPER question **after the final sampled query set has been fixed and before running retrieval or inspecting rankings**. Use only the question and its annotated evidence locations in the generated `query_type_coding.csv` worksheet. Do not use retrieval scores or retrieved units while coding.
+Code every retained QASPER question **after the final sampled query set has been fixed and before running retrieval or inspecting rankings**. Use only the question and its annotated evidence locations in `query_type_coding.csv`. Do not use retrieval scores or retrieved units while coding.
 
 Allowed labels:
 
@@ -64,7 +64,7 @@ When more than one label seems plausible, apply these rules:
 
 ## Coding procedure
 
-1. Generate the worksheet with the retrieval-unit construction stage and work from `data/retrieval_units/query_type_coding.csv`.
+1. Work from `data/retrieval_units/query_type_coding.csv`.
 2. Read the question, evidence counts, and evidence section headings.
 3. Consult the annotated evidence text in the prepared document only when the worksheet is insufficient.
 4. Assign exactly one allowed label to every query.

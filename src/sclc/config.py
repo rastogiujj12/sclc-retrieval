@@ -55,7 +55,7 @@ class ChunkingConfig(BaseModel):
     retain_short_final_chunk: bool = True
 
     @model_validator(mode="after")
-    def validate_overlap(self) -> "ChunkingConfig":
+    def validate_overlap(self) -> ChunkingConfig:
         if self.chunk_size_tokens <= 0:
             raise ValueError("chunk_size_tokens must be positive")
         if not self.supported_chunk_sizes or any(
@@ -111,7 +111,7 @@ class DenseEncodingConfig(BaseModel):
     output_dtype: str = "float32"
 
     @model_validator(mode="after")
-    def validate_dense_settings(self) -> "DenseEncodingConfig":
+    def validate_dense_settings(self) -> DenseEncodingConfig:
         if self.pooling != "mean":
             raise ValueError("This controlled experiment fixes dense pooling at mean")
         if self.batch_size <= 0:
@@ -141,7 +141,7 @@ class BM25Config(BaseModel):
     b: float = 0.75
 
     @model_validator(mode="after")
-    def validate_parameters(self) -> "BM25Config":
+    def validate_parameters(self) -> BM25Config:
         if self.k1 <= 0:
             raise ValueError("BM25 k1 must be positive")
         if not 0 <= self.b <= 1:
@@ -154,7 +154,7 @@ class RankingConfig(BaseModel):
     store_complete_ranking: bool = True
 
     @model_validator(mode="after")
-    def validate_ranking(self) -> "RankingConfig":
+    def validate_ranking(self) -> RankingConfig:
         if self.max_depth <= 0:
             raise ValueError("ranking.max_depth must be positive")
         return self
@@ -180,7 +180,7 @@ class EvaluationConfig(BaseModel):
     error_analysis_per_direction: int = 10
 
     @model_validator(mode="after")
-    def validate_evaluation(self) -> "EvaluationConfig":
+    def validate_evaluation(self) -> EvaluationConfig:
         if not self.cutoffs or any(cutoff <= 0 for cutoff in self.cutoffs):
             raise ValueError("evaluation.cutoffs must contain positive integers")
         if self.cutoffs != sorted(set(self.cutoffs)):
@@ -223,15 +223,15 @@ class EvaluationConfig(BaseModel):
                 "complete_evidence_at_token_budget_",
             ):
                 valid_metrics.add(f"{prefix}{budget}")
-        alternative_set_metrics = {f"best_{metric}" for metric in valid_metrics}
-        alternative_set_metrics.update(
+        sensitivity_metrics = {f"best_{metric}" for metric in valid_metrics}
+        sensitivity_metrics.update(
             f"union_complete_evidence_at_{cutoff}" for cutoff in self.cutoffs
         )
-        alternative_set_metrics.update(
+        sensitivity_metrics.update(
             f"union_complete_evidence_at_token_budget_{budget}"
             for budget in self.token_budgets
         )
-        valid_metrics.update(alternative_set_metrics)
+        valid_metrics.update(sensitivity_metrics)
         if self.primary_metric not in valid_metrics:
             raise ValueError(f"Unsupported evaluation.primary_metric: {self.primary_metric}")
         invalid_bootstrap = set(self.bootstrap_metrics).difference(valid_metrics)
@@ -263,7 +263,7 @@ class AppConfig(BaseModel):
     evaluation: EvaluationConfig = EvaluationConfig()
 
     @model_validator(mode="after")
-    def validate_pipeline_depths(self) -> "AppConfig":
+    def validate_pipeline_depths(self) -> AppConfig:
         if (
             not self.ranking.store_complete_ranking
             and self.ranking.max_depth < max(self.evaluation.cutoffs)

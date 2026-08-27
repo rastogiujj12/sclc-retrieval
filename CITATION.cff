@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use this software artefact, please cite the repository and the associated MSc dissertation."
+message: "If you use this software artefact, please cite the repository and the associated dissertation."
 title: "Section-Constrained Late Chunking for Academic Retrieval: An Ablation Study"
 type: software
 authors:
@@ -12,5 +12,4 @@ keywords:
   - retrieval-augmented generation
   - dense retrieval
   - late chunking
-  - contextual encoding scope
   - academic retrieval

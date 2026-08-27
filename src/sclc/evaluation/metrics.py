@@ -6,7 +6,7 @@ import math
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -63,7 +63,7 @@ def _read_json(path: Path) -> dict[str, Any]:
         raise FileNotFoundError(
             f"{path} does not exist. Run the preceding pipeline stage first."
         )
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
 def _eligible_analysis_set(model: EmbeddingModel | None, analysis_set: str) -> bool:
@@ -773,7 +773,7 @@ def evaluate_condition(
         "evidence_policy": {
             "ranking_and_coverage": "union_of_distinct_evidence_paragraphs",
             "complete_support": "all_paragraphs_in_any_acceptable_evidence_set",
-            "alternative_evidence_set_prefix": "best_",
+            "sensitivity_prefix": "best_",
         },
         "precision_policy": {
             "precision_at_k": "divide_by_available_prefix_min_k_candidate_count",

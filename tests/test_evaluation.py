@@ -186,7 +186,7 @@ def test_alternative_evidence_and_union_metrics_are_both_retained(tmp_path: Path
     assert row["evidence_span_coverage_at_1"] == 0.5
     # Complete support succeeds when any acceptable evidence set is complete.
     assert row["complete_evidence_at_1"] == 1.0
-    # Best-set values remain available as alternative-evidence-set diagnostics.
+    # Best-set values remain available only as sensitivity outputs.
     assert row["best_recall_at_1"] == 1.0
     assert row["best_complete_evidence_at_1"] == 1.0
     assert row["union_complete_evidence_at_1"] == 0.0
@@ -226,9 +226,9 @@ def test_evaluation_requires_complete_query_type_coding(tmp_path: Path) -> None:
     pd.DataFrame([{"query_id": "other", "query_type": "uncertain"}]).to_csv(
         config.paths.retrieval_unit_dir / "query_types.csv", index=False
     )
-    from sclc.data.query_types import load_query_types
-
     import pytest
+
+    from sclc.data.query_types import load_query_types
 
     with pytest.raises(ValueError, match="missing 1 required query IDs"):
         load_query_types(config, {"q1"})

@@ -4,11 +4,13 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from sclc.analysis.retrieval_unit_size import SCOPE_EFFECTS, analyse_retrieval_unit_size
+from sclc.analysis.retrieval_unit_size import (
+    SCOPE_EFFECTS,
+    analyse_retrieval_unit_size,
+)
 from sclc.config import AppConfig
 from sclc.options import EmbeddingModel, RetrievalCondition
 from sclc.paths import evaluation_dir
-
 
 
 def test_scope_effect_directions_match_dissertation() -> None:
@@ -24,6 +26,7 @@ def test_scope_effect_directions_match_dissertation() -> None:
             RetrievalCondition.GLOBAL,
         ),
     )
+
 
 def make_config(tmp_path: Path) -> AppConfig:
     return AppConfig.model_validate(
@@ -118,7 +121,7 @@ def test_retrieval_unit_size_uses_all_and_test_queries(tmp_path: Path) -> None:
     for size in (128, 256, 512):
         size_shift = {128: 0.0, 256: 0.02, 512: 0.04}[size]
         for condition, base in base_by_condition.items():
-            # Make the section-constrained minus global effect decrease as retrieval units grow.
+            # Make the section-constrained minus global effect decrease as chunks grow.
             condition_shift = 0.0
             if condition == "global":
                 condition_shift = {128: 0.0, 256: 0.05, 512: 0.10}[size]
@@ -161,7 +164,7 @@ def test_retrieval_unit_size_uses_all_and_test_queries(tmp_path: Path) -> None:
         & (summary["sample_scope"] == "split_test")
     ]
     assert set(test_questions["query_count"]) == {2}
-    assert set(comparisons["retrieval_unit_size_tokens"]) == {128, 256, 512}
+    assert set(comparisons["chunk_size_tokens"]) == {128, 256, 512}
     assert "mean_difference_first_minus_second" in comparisons.columns
 
     central = interactions[
@@ -169,8 +172,8 @@ def test_retrieval_unit_size_uses_all_and_test_queries(tmp_path: Path) -> None:
         & (interactions["sample_scope"] == "all_questions")
         & (interactions["effect_name"] == "section_constrained_minus_global")
         & (interactions["metric"] == "ndcg_at_5")
-        & (interactions["first_retrieval_unit_size_tokens"] == 128)
-        & (interactions["second_retrieval_unit_size_tokens"] == 512)
+        & (interactions["first_chunk_size_tokens"] == 128)
+        & (interactions["second_chunk_size_tokens"] == 512)
     ]
     assert len(central) == 1
     assert central.iloc[0][

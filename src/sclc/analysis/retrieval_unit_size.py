@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -156,13 +156,13 @@ def analyse_retrieval_unit_size(
 ) -> dict[str, Any]:
     sizes = tuple(dict.fromkeys(int(size) for size in chunk_sizes))
     if len(sizes) < 2:
-        raise ValueError("Retrieval-unit-size analysis requires at least two sizes")
+        raise ValueError("Retrieval-unit-size requires at least two chunk sizes")
     if any(size <= 0 for size in sizes):
-        raise ValueError("Retrieval-unit sizes must be positive integers")
+        raise ValueError("Chunk sizes must be positive integers")
     unsupported = set(sizes).difference(config.chunking.supported_chunk_sizes)
     if unsupported:
         raise ValueError(
-            f"Unsupported retrieval-unit sizes {sorted(unsupported)}; expected a subset of "
+            f"Unsupported chunk sizes {sorted(unsupported)}; expected a subset of "
             f"{config.chunking.supported_chunk_sizes}"
         )
 
@@ -209,13 +209,13 @@ def analyse_retrieval_unit_size(
         size_ids = set(loaded[(size, DENSE_CONDITIONS[0])]["query_id"].astype(str))
         if size_ids != reference_ids:
             raise RuntimeError(
-                "Evaluated query sets differ across retrieval-unit sizes; this analysis "
+                "Evaluated query sets differ across chunk sizes; sensitivity analysis "
                 "requires identical questions at every size"
             )
 
     configuration = {
         "model": model.value,
-        "retrieval_unit_sizes": list(sizes),
+        "chunk_sizes": list(sizes),
         "conditions": [condition.value for condition in DENSE_CONDITIONS],
         "within_size_comparisons": [
             [first.value, second.value]
@@ -243,10 +243,12 @@ def analyse_retrieval_unit_size(
     }
     fingerprint = _fingerprint(configuration)
     if manifest_path.exists() and not overwrite:
-        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        existing = cast(
+            dict[str, Any], json.loads(manifest_path.read_text(encoding="utf-8"))
+        )
         if existing.get("configuration_fingerprint") != fingerprint:
             raise RuntimeError(
-                f"Cached retrieval-unit-size analysis at {output_dir} does not match current "
+                f"Cached sensitivity analysis at {output_dir} does not match current "
                 "inputs. Re-run with --overwrite."
             )
         return existing
@@ -278,7 +280,7 @@ def analyse_retrieval_unit_size(
                         "model_key": model.value,
                         "analysis_set": analysis_name,
                         "sample_scope": sample_scope,
-                        "retrieval_unit_size_tokens": size,
+                        "chunk_size_tokens": size,
                         "condition": condition.value,
                         "query_count": len(sample),
                         "document_count": sample["document_id"].nunique(),
@@ -334,7 +336,7 @@ def analyse_retrieval_unit_size(
                                 "model_key": model.value,
                                 "analysis_set": analysis_name,
                                 "sample_scope": sample_scope,
-                                "retrieval_unit_size_tokens": size,
+                                "chunk_size_tokens": size,
                                 "first_condition": first.value,
                                 "second_condition": second.value,
                                 "metric": metric,
@@ -354,7 +356,7 @@ def analyse_retrieval_unit_size(
                         )
 
         # Build per-query scope effects at each size, then test whether those effects
-        # change across retrieval-unit sizes (the size-by-scope interaction).
+        # change across chunk sizes (the chunk-size-by-scope interaction).
         effects_by_key: dict[tuple[str, str], pd.DataFrame] = {}
         for effect_name, first, second in SCOPE_EFFECTS:
             for size in sizes:
@@ -376,7 +378,7 @@ def analyse_retrieval_unit_size(
                 effect_frame = merged[_METADATA_COLUMNS].copy()
                 effect_frame["model_key"] = model.value
                 effect_frame["analysis_group"] = analysis_name
-                effect_frame["retrieval_unit_size_tokens"] = size
+                effect_frame["chunk_size_tokens"] = size
                 effect_frame["effect_name"] = effect_name
                 for metric in metrics:
                     effect_frame[metric] = (
@@ -456,8 +458,8 @@ def analyse_retrieval_unit_size(
                                     "analysis_set": analysis_name,
                                     "sample_scope": sample_scope,
                                     "effect_name": effect_name,
-                                    "first_retrieval_unit_size_tokens": first_size,
-                                    "second_retrieval_unit_size_tokens": second_size,
+                                    "first_chunk_size_tokens": first_size,
+                                    "second_chunk_size_tokens": second_size,
                                     "metric": metric,
                                     "query_count": len(merged_effects),
                                     "document_count": merged_effects[
@@ -494,7 +496,7 @@ def analyse_retrieval_unit_size(
         "model_key",
         "analysis_set",
         "sample_scope",
-        "retrieval_unit_size_tokens",
+        "chunk_size_tokens",
         "metric",
     ]
     for _, indices in comparisons.groupby(within_family, dropna=False).groups.items():
@@ -529,7 +531,7 @@ def analyse_retrieval_unit_size(
             "model_key",
             "analysis_set",
             "sample_scope",
-            "retrieval_unit_size_tokens",
+            "chunk_size_tokens",
             "condition",
         ]
     ).to_csv(summary_path, index=False)
@@ -538,7 +540,7 @@ def analyse_retrieval_unit_size(
             "model_key",
             "analysis_set",
             "sample_scope",
-            "retrieval_unit_size_tokens",
+            "chunk_size_tokens",
             "metric",
             "first_condition",
             "second_condition",
@@ -549,7 +551,7 @@ def analyse_retrieval_unit_size(
             "model_key",
             "analysis_group",
             "effect_name",
-            "retrieval_unit_size_tokens",
+            "chunk_size_tokens",
             "document_id",
             "query_id",
         ]
@@ -561,8 +563,8 @@ def analyse_retrieval_unit_size(
             "sample_scope",
             "metric",
             "effect_name",
-            "first_retrieval_unit_size_tokens",
-            "second_retrieval_unit_size_tokens",
+            "first_chunk_size_tokens",
+            "second_chunk_size_tokens",
         ]
     ).to_csv(interactions_path, index=False)
 
@@ -570,7 +572,7 @@ def analyse_retrieval_unit_size(
         "schema_version": 1,
         "kind": "retrieval_unit_size_analysis",
         "model_key": model.value,
-        "retrieval_unit_sizes": list(sizes),
+        "chunk_sizes": list(sizes),
         "query_count": len(reference_ids),
         "summary_row_count": len(summary),
         "comparison_count": len(comparisons),
@@ -590,10 +592,10 @@ def analyse_retrieval_unit_size(
             "the frozen selected-paper corpus.",
             "The split_test scope preserves the original held-out test subset.",
             "Within-size differences are first condition minus second condition.",
-            "Retrieval-unit-size interactions test whether a scope difference changes between "
-            "two retrieval-unit sizes; positive values mean the named effect is larger at the "
-            "second retrieval-unit size.",
-            "Fixed-rank metrics change the amount of retrieved text as retrieval-unit size "
+            "Chunk-size interactions test whether a scope difference changes between "
+            "two chunk sizes; positive values mean the named effect is larger at the "
+            "second chunk size.",
+            "Fixed-rank metrics change the amount of retrieved text as chunk size "
             "changes; token-budget metrics provide the fairer cross-size comparison.",
         ],
     }

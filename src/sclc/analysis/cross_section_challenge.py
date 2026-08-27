@@ -3,16 +3,15 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
 from sclc.analysis.qasper_collection import AUDIT_DIRNAME
 from sclc.config import AppConfig
 
-
 CHALLENGE_DIRNAME = "qasper_cross_section_challenge"
-# Fixed seed preserved so regenerated review IDs match the committed manual review.
+CHALLENGE_VERSION = "1.0"
 REVIEW_ORDER_SEED = "sclc-qasper-strict-cross-section-review-v1"
 
 
@@ -26,7 +25,7 @@ def _file_sha256(path: Path) -> str:
 
 def _fingerprint(payload: dict[str, Any]) -> str:
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 def _bool_series(frame: pd.DataFrame, column: str) -> pd.Series:
@@ -38,7 +37,7 @@ def _bool_series(frame: pd.DataFrame, column: str) -> pd.Series:
 
 def _review_order(query_id: str) -> str:
     return hashlib.sha256(
-        f"{REVIEW_ORDER_SEED}:{query_id}".encode("utf-8")
+        f"{REVIEW_ORDER_SEED}:{query_id}".encode()
     ).hexdigest()
 
 
@@ -52,11 +51,11 @@ annotated evidence.
 ## Required fields
 
 - `include`: `yes` or `no`.
-- `joint_evidence_required`: `yes`, `no`, or `unclear`. Select `yes` only when
-  evidence from multiple top-level sections is genuinely needed for a complete
-  answer.
-- `duplicate_support`: `yes`, `no`, or `unclear`. Select `yes` when the sections
-  merely repeat equivalent support.
+- `joint_evidence_required`: `yes`, `no`, or `unclear`. Select `yes` only
+  when evidence from multiple top-level sections is genuinely needed for a
+  complete answer.
+- `duplicate_support`: `yes`, `no`, or `unclear`. Select `yes` when the
+  sections merely repeat equivalent support.
 - `section_mapping_valid`: `yes`, `no`, or `unclear`.
 - `answerable_from_evidence`: `yes`, `no`, or `unclear`.
 - `rejection_reason`: leave blank when included. Otherwise use one of:
@@ -97,6 +96,7 @@ def freeze_cross_section_challenge(
     audit_manifest = json.loads(audit_manifest_path.read_text(encoding="utf-8"))
 
     selection_policy = {
+        "challenge_version": CHALLENGE_VERSION,
         "source_candidate_sha256": _file_sha256(candidates_path),
         "source_audit_fingerprint": audit_manifest.get(
             "configuration_fingerprint"
@@ -125,7 +125,9 @@ def freeze_cross_section_challenge(
     configuration_fingerprint = _fingerprint(selection_policy)
 
     if manifest_path.exists() and not overwrite:
-        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        existing = cast(
+            dict[str, Any], json.loads(manifest_path.read_text(encoding="utf-8"))
+        )
         if existing.get("configuration_fingerprint") != configuration_fingerprint:
             raise RuntimeError(
                 f"Cached challenge at {output_dir} does not match the current "
@@ -153,6 +155,7 @@ def freeze_cross_section_challenge(
         ].tolist()
         raise RuntimeError(f"Duplicate challenge query IDs: {duplicates[:5]}")
 
+    challenge["challenge_version"] = CHALLENGE_VERSION
     challenge["review_sort_key"] = challenge["query_id"].map(_review_order)
     challenge = challenge.sort_values("review_sort_key").reset_index(drop=True)
     challenge["review_id"] = [
@@ -183,7 +186,7 @@ def freeze_cross_section_challenge(
     }
     if observed_counts != expected_counts:
         raise RuntimeError(
-            "Challenge counts differ from the frozen challenge design: "
+            "Challenge counts differ from the frozen v1 design: "
             f"expected {expected_counts}, observed {observed_counts}."
         )
 
@@ -198,6 +201,7 @@ def freeze_cross_section_challenge(
     instructions_path = output_dir / "REVIEW_INSTRUCTIONS.md"
 
     frozen_columns = [
+        "challenge_version",
         "review_id",
         "query_id",
         "document_id",
@@ -319,6 +323,7 @@ def freeze_cross_section_challenge(
     manifest = {
         "schema_version": 1,
         "kind": "qasper_strict_cross_section_challenge_freeze",
+        "challenge_version": CHALLENGE_VERSION,
         "configuration": selection_policy,
         "configuration_fingerprint": configuration_fingerprint,
         "counts": observed_counts,
@@ -394,6 +399,7 @@ def finalize_cross_section_challenge(
     decisions_hash = _file_sha256(decisions_path)
     freeze_manifest = json.loads(freeze_manifest_path.read_text(encoding="utf-8"))
     configuration = {
+        "challenge_version": CHALLENGE_VERSION,
         "freeze_fingerprint": freeze_manifest.get("configuration_fingerprint"),
         "decisions_sha256": decisions_hash,
         "decision_rule": (
@@ -404,7 +410,9 @@ def finalize_cross_section_challenge(
     }
     configuration_fingerprint = _fingerprint(configuration)
     if final_manifest_path.exists() and not overwrite:
-        existing = json.loads(final_manifest_path.read_text(encoding="utf-8"))
+        existing = cast(
+            dict[str, Any], json.loads(final_manifest_path.read_text(encoding="utf-8"))
+        )
         if existing.get("configuration_fingerprint") != configuration_fingerprint:
             raise RuntimeError(
                 f"Cached finalized challenge at {output_dir} does not match the "
@@ -607,6 +615,7 @@ def finalize_cross_section_challenge(
     manifest = {
         "schema_version": 1,
         "kind": "qasper_strict_cross_section_challenge_finalized",
+        "challenge_version": CHALLENGE_VERSION,
         "configuration": configuration,
         "configuration_fingerprint": configuration_fingerprint,
         "counts": counts,
@@ -642,6 +651,7 @@ def finalize_cross_section_challenge(
 
 __all__ = [
     "CHALLENGE_DIRNAME",
+    "CHALLENGE_VERSION",
     "freeze_cross_section_challenge",
     "finalize_cross_section_challenge",
 ]

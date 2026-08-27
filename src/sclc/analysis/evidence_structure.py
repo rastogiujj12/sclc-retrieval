@@ -6,7 +6,6 @@ from typing import Any
 
 from sclc.data.schema import PreparedQueryRecord
 
-
 SINGLE_PARAGRAPH = "single_paragraph"
 MULTI_PARAGRAPH_SAME_SECTION = "multi_paragraph_same_section"
 MULTI_PARAGRAPH_CROSS_SECTION = "multi_paragraph_cross_section"

@@ -5,9 +5,8 @@ from pathlib import Path
 import typer
 
 from sclc.commands import (
-    challenge_analyse_command,
     build_units_command,
-    retrieval_unit_size_command,
+    challenge_analyse_command,
     compare_command,
     encode_command,
     evaluate_command,
@@ -16,6 +15,7 @@ from sclc.commands import (
     qasper_audit_command,
     qasper_challenge_command,
     qasper_challenge_finalize_command,
+    retrieval_unit_size_command,
     retrieve_command,
     sample_command,
 )
@@ -26,25 +26,6 @@ app = typer.Typer(
     help="Section-constrained late-chunking retrieval experiment.",
     no_args_is_help=True,
 )
-
-
-def _parse_retrieval_unit_sizes(value: str, *, minimum_count: int) -> tuple[int, ...]:
-    try:
-        sizes = tuple(int(item.strip()) for item in value.split(",") if item.strip())
-    except ValueError as error:
-        raise typer.BadParameter(
-            "--retrieval-unit-sizes must be a comma-separated list of integers"
-        ) from error
-    if len(sizes) < minimum_count:
-        noun = "size" if minimum_count == 1 else "sizes"
-        raise typer.BadParameter(
-            f"--retrieval-unit-sizes must contain at least {minimum_count} {noun}"
-        )
-    if any(size <= 0 for size in sizes):
-        raise typer.BadParameter("--retrieval-unit-sizes must contain positive integers")
-    if len(set(sizes)) != len(sizes):
-        raise typer.BadParameter("--retrieval-unit-sizes must not contain duplicates")
-    return sizes
 
 
 @app.command()
@@ -253,7 +234,7 @@ def compare(
         None,
         "--retrieval-unit-size",
         min=1,
-        help="Selected retrieval-unit-size namespace.",
+        help="Selected chunk size namespace.",
     ),
     overwrite: bool = typer.Option(
         False,
@@ -270,10 +251,7 @@ def compare(
 ) -> None:
     """Run document-level paired bootstrap comparisons and Holm correction."""
     compare_command(
-        config,
-        model=model,
-        retrieval_unit_size=retrieval_unit_size,
-        overwrite=overwrite,
+        config, model=model, retrieval_unit_size=retrieval_unit_size, overwrite=overwrite
     )
 
 
@@ -319,60 +297,46 @@ def qasper_challenge(
 def qasper_challenge_finalize(
     decisions: Path = typer.Option(
         Path("data/subsets_cross_section_challenge/review_decisions.csv"),
-        "--decisions",
-        exists=True,
-        dir_okay=False,
-        readable=True,
+        "--decisions", exists=True, dir_okay=False, readable=True,
         help="Completed manual review decisions.",
     ),
     overwrite: bool = typer.Option(False, "--overwrite"),
     config: Path = typer.Option(
-        Path("configs/base.yaml"),
-        exists=True,
-        dir_okay=False,
-        readable=True,
+        Path("configs/base.yaml"), exists=True, dir_okay=False, readable=True,
         help="Path to the primary YAML configuration.",
     ),
 ) -> None:
     """Validate the manual review and freeze the accepted challenge questions."""
-    qasper_challenge_finalize_command(
-        config, decisions_path=decisions, overwrite=overwrite
-    )
+    qasper_challenge_finalize_command(config, decisions_path=decisions, overwrite=overwrite)
 
 
 @app.command("challenge-analyse")
 def challenge_analyse(
-    model: EmbeddingModel = typer.Option(
-        EmbeddingModel.JINA, "--model", case_sensitive=False
-    ),
+    model: EmbeddingModel = typer.Option(EmbeddingModel.JINA, "--model", case_sensitive=False),
     accepted_queries: Path = typer.Option(
         Path("data/subsets_cross_section_challenge/review_decisions.csv"),
-        "--accepted-queries",
-        exists=True,
-        dir_okay=False,
-        readable=True,
+        "--accepted-queries", exists=True, dir_okay=False, readable=True,
         help="Reviewed challenge decisions containing the accepted query IDs.",
     ),
-    retrieval_unit_sizes: str = typer.Option(
-        "128,256,512", "--retrieval-unit-sizes"
-    ),
+    retrieval_unit_sizes: str = typer.Option("128,256,512", "--retrieval-unit-sizes"),
     overwrite: bool = typer.Option(False, "--overwrite"),
     config: Path = typer.Option(
-        Path("configs/cross_section_challenge.yaml"),
-        exists=True,
-        dir_okay=False,
-        readable=True,
+        Path("configs/cross_section_challenge.yaml"), exists=True, dir_okay=False, readable=True,
         help="Path to the challenge YAML configuration.",
     ),
 ) -> None:
     """Analyse the accepted cross-section challenge questions."""
-    parsed_sizes = _parse_retrieval_unit_sizes(retrieval_unit_sizes, minimum_count=1)
+    try:
+        parsed_sizes = tuple(int(v.strip()) for v in retrieval_unit_sizes.split(",") if v.strip())
+    except ValueError as error:
+        raise typer.BadParameter(
+            "--retrieval-unit-sizes must be a comma-separated list of integers"
+        ) from error
+    if len(parsed_sizes) < 1:
+        raise typer.BadParameter("--retrieval-unit-sizes must contain at least one size")
     challenge_analyse_command(
-        config,
-        accepted_queries_path=accepted_queries,
-        model=model,
-        retrieval_unit_sizes=parsed_sizes,
-        overwrite=overwrite,
+        config, accepted_queries_path=accepted_queries, model=model,
+        retrieval_unit_sizes=parsed_sizes, overwrite=overwrite,
     )
 
 
@@ -387,7 +351,7 @@ def retrieval_unit_size(
     retrieval_unit_sizes: str = typer.Option(
         "128,256,512",
         "--retrieval-unit-sizes",
-        help="Comma-separated retrieval-unit sizes with completed dense evaluations.",
+        help="Comma-separated chunk sizes with completed dense evaluations.",
     ),
     overwrite: bool = typer.Option(
         False,
@@ -403,13 +367,26 @@ def retrieval_unit_size(
     ),
 ) -> None:
     """Analyse retrieval performance across 128, 256, and 512-token units."""
-    parsed_sizes = _parse_retrieval_unit_sizes(retrieval_unit_sizes, minimum_count=2)
+    try:
+        parsed_sizes = tuple(
+            int(value.strip())
+            for value in retrieval_unit_sizes.split(",")
+            if value.strip()
+        )
+    except ValueError as error:
+        raise typer.BadParameter(
+            "--retrieval-unit-sizes must be a comma-separated list of integers"
+        ) from error
+    if len(parsed_sizes) < 2:
+        raise typer.BadParameter("--retrieval-unit-sizes must contain at least two sizes")
     retrieval_unit_size_command(
         config,
         model=model,
         retrieval_unit_sizes=parsed_sizes,
         overwrite=overwrite,
     )
+
+
 
 
 if __name__ == "__main__":

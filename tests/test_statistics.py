@@ -1,9 +1,12 @@
 import pandas as pd
 import pytest
 
-from sclc.evaluation.statistics import COMPARISONS, holm_adjust, paired_document_bootstrap
+from sclc.evaluation.statistics import (
+    COMPARISONS,
+    holm_adjust,
+    paired_document_bootstrap,
+)
 from sclc.options import RetrievalCondition
-
 
 
 def test_primary_comparison_directions_match_dissertation() -> None:
@@ -13,6 +16,7 @@ def test_primary_comparison_directions_match_dissertation() -> None:
         (RetrievalCondition.SECTION_CONSTRAINED, RetrievalCondition.SECTION_ISOLATED),
         (RetrievalCondition.GLOBAL, RetrievalCondition.SECTION_CONSTRAINED),
     )
+
 
 def test_holm_adjustment_is_monotonic_in_sorted_order() -> None:
     assert holm_adjust([0.01, 0.04, 0.03]) == pytest.approx([0.03, 0.06, 0.06])
@@ -43,7 +47,6 @@ def test_document_bootstrap_uses_first_minus_second_difference() -> None:
 
 def test_compare_conditions_writes_pairwise_and_error_analysis_outputs(tmp_path) -> None:
     import json
-    from pathlib import Path
 
     from sclc.config import AppConfig
     from sclc.evaluation.statistics import compare_conditions

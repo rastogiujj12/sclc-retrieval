@@ -2,7 +2,7 @@
 
 The dissertation evaluates all primary retrieval conditions at canonical target
 sizes of **128, 256, and 512 tokens**. Retrieval-unit size is an experimental
-factor; all three sizes are evaluated directly as part of the final experimental design.
+factor; all three sizes are evaluated directly rather than selected by a preliminary size-selection step.
 
 For each embedding model, the analysis uses the frozen paper sample and reports:
 
@@ -50,14 +50,14 @@ outputs/analysis/retrieval_unit_size/<model>/
 
 The main files are:
 
-- `summary_by_retrieval_unit_size.csv`: mean metrics by condition, retrieval-unit size, analysis set,
+- `summary_by_retrieval_unit_size.csv`: mean metrics by condition, size, analysis set,
   and sample scope;
 - `comparisons_within_retrieval_unit_size.csv`: paired document-level bootstrap
-  comparisons at each retrieval-unit size;
+  comparisons at each size;
 - `query_scope_effects.csv`: per-query section-isolated minus
   section-constrained and section-constrained minus global effects;
 - `scope_interactions_across_retrieval_unit_sizes.csv`: tests of whether those scope
-  effects change between 128, 256, and 512-token retrieval units;
+  effects change between 128, 256, and 512 tokens;
 - `manifest.json`: configuration, source fingerprints, and output metadata.
 
 All signed differences follow **first condition minus second condition**. A

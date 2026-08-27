@@ -7,7 +7,7 @@ import re
 from collections import Counter, defaultdict
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from sclc.config import AppConfig
 from sclc.data.retrieval_unit_io import read_retrieval_units
@@ -55,13 +55,13 @@ def _units_fingerprint(units: Sequence[RetrievalUnitRecord]) -> str:
 def _read_json(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
 def _read_gzip_json(path: Path) -> dict[str, Any]:
     try:
         with gzip.open(path, "rt", encoding="utf-8") as handle:
-            return json.load(handle)
+            return cast(dict[str, Any], json.load(handle))
     except (OSError, json.JSONDecodeError) as exc:
         raise RuntimeError(
             f"Cached BM25 file {path} is invalid. Re-run with --overwrite."
@@ -99,7 +99,7 @@ def build_bm25_encoding(
     """Create a resumable, fingerprinted lexical representation for BM25."""
     units_path = retrieval_unit_dir(config, chunk_size) / "continuous_units.jsonl"
     if not units_path.exists():
-        raise FileNotFoundError(f"{units_path} does not exist. Run `sclc chunk` first.")
+        raise FileNotFoundError(f"{units_path} does not exist. Run `sclc build-units` first.")
 
     units = list(read_retrieval_units(units_path))
     units_by_document: dict[str, list[RetrievalUnitRecord]] = defaultdict(list)
